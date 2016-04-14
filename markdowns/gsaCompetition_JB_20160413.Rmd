@@ -1,0 +1,241 @@
+---
+title: "GSA Competition"
+author: "Ryan Tuggle and Jessica Bonnie"
+date: "April 13, 2016"
+output: pdf_document
+---
+
+
+This R Markdown document shows an initial exploration of GSA contracting competition data. See end for summary section containing notes and questions for next iteration.
+
+
+```{r, message=FALSE, warning=FALSE}
+#load libraries silently.
+
+require(dplyr)
+require(ggplot2)
+require(pander)
+require(knitr)
+
+
+opts_chunk$set(tidy=TRUE)
+```
+
+##Kristin's Data##
+
+Currently this section is merely trying to reproduce Ryan's steps from his data set, which are included in the next section.
+
+```{r, message=FALSE,cache=TRUE}
+# Load data into single frame from multiple CSV files in directory.
+
+
+#Directory of files from Kristin, filenames contain numerical date information that we will want to capture.
+datadir <- './data/FPDS_20160413'
+
+reading_helper <- function(infile,datadir,...){
+  ## Function to read in csv and strip date information from file name
+  temp <- read.csv(paste(datadir,infile,sep="/"), stringsAsFactors = F,...)
+  temp$period <- gsub("FPDS","",infile) %>% gsub("\\.csv","",.)
+  return(temp)
+}
+
+#if (exists(fpds)){rm(fpds)}
+
+
+files <- list.files(datadir,pattern = "FPDS[0-9_]*.csv")
+fpds <- do.call(rbind, lapply(files, function(x) reading_helper(x,datadir)))
+
+#Here are the column headers in the data.frame
+names(fpds)
+```
+
+This data has already been filtered to have only GSA as the Contracting Department.
+
+
+```{r,cache=TRUE,message=FALSE,tidy=TRUE}
+## Adapt numeric columns to be numbers without all the extra garbage characters
+
+fpds$Action.Obligation <- gsub("[^0-9.]","",fpds$Action.Obligation) %>% as.numeric()
+
+
+## Select Desired Variables
+
+fpds <- fpds %>% select(Referenced..IDV.PIID, PIID, Referenced.IDV.Mod.Number, Modification.Number, Date.Signed, Action.Obligation, Contracting.Agency.ID, Contracting.Office.ID, Contracting.Office.Name, Award.or.IDV.Type, Contracting.Agency.Name, Funding.Office.Name, Funding.Agency.Name, Place.of.Performance.Zip.Code, Type.of.Contract, Global.DUNS.Number, Type.of.Set.Aside, period)
+
+
+## Create any new variables we might need
+fpds <- fpds %>% mutate(cat = paste(Referenced..IDV.PIID, PIID, sep='-'))
+
+# The following variables removed from selection list due to not being present in the current pull: Extent.Competed, Number.of.Offers.Received, Other.Than.Full.and.Open.Competition, Actions, Fiscal.Year, Number.of.Records
+
+```
+
+
+Take a look at how the extent competed variable is aggregated across mods. One goal is to understand how to sum up the competition variables such as the Number of Offers Received.
+
+```{r,message=FALSE,fig.width=16}
+
+# We do not currently have the columns necessary for this:
+# fpds.test1 <- fpds %>% filter(Number.of.Records > 1 | Actions > 1)
+
+
+#group variables by PIIDs
+fpds.test2 <- fpds %>% group_by(cat) %>% 
+    summarize(cnt = n_distinct(cat)) %>%
+    arrange(desc(cnt)) %>%
+    filter(cnt > 1)
+
+#This is empty just like in Ryan's set
+head(fpds.test2)
+
+#does any PIID have a mod in this set?
+fpds.test3 <- fpds %>% filter(Modification.Number != 0) %>% 
+  select(-Date.Signed,-Contracting.Office.ID,-Contracting.Agency.ID,
+         -Funding.Agency.Name,-Funding.Office.Name,-Contracting.Agency.Name,
+         -Global.DUNS.Number,-Place.of.Performance.Zip.Code,-Type.of.Set.Aside)
+pander(tbl_df(sample_n(fpds.test3, 20)),split.cells = 15)
+
+
+```
+
+
+Next let's look at a few dimensions of the dataset. 
+
+Start with the count of records by contracting Agency 
+
+```{r,fig.width=15}
+#contracting agency 
+
+ggplot(fpds, aes(Contracting.Agency.Name)) +
+    geom_bar(aes(fill = Award.or.IDV.Type)) +
+    coord_flip() 
+```
+
+Drill down to the offices within the Federal Acquisition Service.
+
+```{r,fig.width=15,fig.height=13}
+#contracting agency 
+
+ggplot(filter(fpds, Contracting.Agency.Name == 'FEDERAL ACQUISITION SERVICE'),
+       aes(Contracting.Office.Name)) +
+    geom_bar(aes(fill = Award.or.IDV.Type)) +
+    coord_flip() 
+
+
+# Let's try again, but this time strip the non-alphanumeric characters so that the contracting office names group even when one of them has a "/" in it.
+ggplot(filter(fpds, Contracting.Agency.Name == 'FEDERAL ACQUISITION SERVICE'),
+       aes(gsub("[^0-9A-Za-z ]"," ",toupper(Contracting.Office.Name)))) +
+  geom_bar(aes(fill = Award.or.IDV.Type)) +
+  coord_flip() 
+```
+
+
+
+## Summary ##
+
+###NOTES:###
+
+1. Need **Fiscal Year** Column to be be pulled... can be reconstructed from filenames, but that is problematic if more than one month is being included.
+2. If there is a **Month** Column, please also include that. Failing that, let's pull each month individually.
+3. We may need these fields to be included in the next pull?
+
+   + `Extent.Competed`
+   + `Number.of.Offers.Received`
+   + `Other.Than.Full.and.Open.Competition`
+   + `Actions`
+   + `Number.of.Records`
+  
+### Questions:###
+
+1. What belongs in the `Referenced.IDV.Mod.Number` field? Because there are alphanumeric strings and also two digit numbers.
+2. Can we determine anything from the lengths of the strings in the `PIID` column? We have strings of the following lengths `r sort(unique(nchar(fpds$PIID)))`.
+3. What belongs in the `Modification.Number` field? We have a combination of numeric values (e.g. `r head(sort(unique(fpds$Modification.Number)))`) and alphanumeric strings (e.g. `r head(sort(unique(fpds$Modification.Number),decreasing=TRUE))`). Some of them appear to have words embedded inside of them (e.g. `r unique(fpds$Modification.Number) %>% .[grep(pattern="[A-Z]{5}",.)] %>% head()`)
+
+
+
+
+## Ryan's Data Extraction ##
+*This is largely unchanged from Ryan's approach. I adapted the `Obligation.Amount` field to be properly numeric and changed some of the aesthetics.
+
+Take a look at how the extent competed variable is aggregated across mods. One goal is to understand how to sum up the competition variables such as the Number of Offers Received.
+
+```{r,message=FALSE}
+df <- read.csv('./data/GSA_Competition_Q1FY14.csv',stringsAsFactors = F)
+names(df)
+#select variables for exploration
+dfs <- select(df, Referenced..IDV.PIID, PIID, Referenced.IDV.Mod.Number, Modification.Number, Date.Signed, Extent.Competed, Number.of.Offers.Received, Other.Than.Full.and.Open.Competition, Action.Obligation, Actions, Number.of.Records, Contracting.Office.Name, Award.or.IDV.Type, Contracting.Agency.Name)
+
+dfs$Action.Obligation <- gsub("[^0-9.]","", dfs$Action.Obligation) %>% as.numeric()
+
+dfs <- mutate(dfs,  cat = paste(Referenced..IDV.PIID, PIID, sep='-'))
+
+test1 <- filter(dfs, Number.of.Records > 1 | Actions > 1)
+
+
+#group variables by PIIDs
+dfg <- group_by(dfs, cat)
+
+test2 <- dfg %>% 
+    summarize(cnt = n_distinct(cat)) %>%
+    arrange(desc(cnt)) %>%
+    filter(cnt > 1)
+
+head(test2)
+
+#does any PIID have a mod in this set?
+test3 <- filter(dfs, Modification.Number != 0) 
+pander(tbl_df(sample_n(test3, 20)),split.cells=15)
+```
+
+These initial tests of aggregation show that all PIID-pair (award + reference IDV) entries are unique, i.e. none have more than one entry in the dataset. This is surprising because the same award tends to have multiple modifications. Assume that each entry is unique because of the time period. Leaves unresolved the question of whether to sum the number of competitors PIIDs or take the max, will default to the latter. 
+
+
+Next let's look at a few dimensions of the dataset. 
+
+Start with the count of records by contracting Agency 
+
+```{r,fig.width=15}
+#contracting agency 
+
+ggplot(dfs, aes(Contracting.Agency.Name)) +
+    geom_bar(aes(fill = Award.or.IDV.Type)) +
+    coord_flip() 
+```
+
+Drill down to the offices within the Federal Acquisition Service.
+
+```{r,fig.width=15,fig.height=13}
+#contracting agency 
+ggplot(filter(dfs, Contracting.Agency.Name == 'FEDERAL ACQUISITION SERVICE'),
+              aes(Contracting.Office.Name)) +
+    geom_bar(aes(fill = Award.or.IDV.Type)) +
+    coord_flip() 
+```
+
+Looks like Federal Supply Schedules (FSS) make up the majority of the contract actions. Believe these are a vehicle and so too BPA and IDC, probably want to add category for Award or vehicle type. First, let's get the overall percentages by type. 
+
+```{r,message=FALSE}
+pct <- dfs %>%
+    group_by(Award.or.IDV.Type) %>%
+    summarise(cnt = n(), value = sum(Action.Obligation)) %>%
+    mutate(propCnt = cnt / sum(cnt), propSum = value / sum(value))
+
+pander(tbl_df(pct),split.cells=10)
+```
+
+Seventy five percent of the records are FSS (45%) or Delivery Order (30%). Seventy percent of the funding comes from Delivery Order (50%) and BPA Calls (19%). 
+
+While we're looking at percentages let's take a similar look at the break down of competition types. 
+
+```{r,message=FALSE}
+pct <- dfs %>%
+    group_by(Extent.Competed) %>%
+    summarise(cnt = n(), value = sum(Action.Obligation)) %>%
+    mutate(propCnt = cnt / sum(cnt), propSum = value / sum(value))
+
+pander(tbl_df(pct),hyphenate=T, split.cells=15)
+```
+
+Seventy five percent of the records are listed as completely full and open. Only sixty six percent when weighted by dollars. 
+
+Now we should start to explore patterns in the number of offers... 
