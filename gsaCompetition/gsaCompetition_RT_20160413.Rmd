@@ -1,0 +1,96 @@
+---
+title: "GSA Competition"
+author: "Ryan Tuggle"
+date: "April 12, 2016"
+output: html_document
+---
+
+This R Markdown document shows an initial exploration of GSA contracting competition data. 
+
+Start with the sample of contracts. 
+
+```{r}
+df <- read.csv('~/Repositories/data/GSA_Competition_Q1FY14.csv')
+names(df)
+```
+
+Take a look at how the extent competed variable is aggregated across mods. One goal is to understand how to sum up the competition variables such as the Number of Offers Received.
+
+```{r}
+library(dplyr)
+#select variables for exploration
+dfs <- select(df, Referenced..IDV.PIID, PIID, Referenced.IDV.Mod.Number, Modification.Number, Date.Signed, Extent.Competed, Number.of.Offers.Received, Other.Than.Full.and.Open.Competition, Action.Obligation, Actions, Number.of.Records, Contracting.Office.Name, Award.or.IDV.Type, Contracting.Agency.Name)
+
+dfs <- mutate(dfs, Action.Obligation = as.numeric(Action.Obligation), cat = paste(Referenced..IDV.PIID, PIID, sep='-'))
+
+test1 <- filter(dfs, Number.of.Records > 1 | Actions > 1)
+View(test1)
+
+#group variables by PIIDs
+dfg <- group_by(dfs, cat)
+
+test2 <- dfg %>% 
+    summarize(cnt = n_distinct(cat)) %>%
+    arrange(desc(cnt)) %>%
+    filter(cnt > 1)
+
+head(test2)
+
+#does any PIID have a mod in this set?
+test3 <- filter(dfs, Modification.Number != 0)
+tbl_df(sample_n(test3, 20))
+```
+
+These initial tests of aggregation show that all PIID-pair (award + reference IDV) entries are unique, i.e. none have more than one entry in the dataset. This is surprising because the same award tends to have multiple modifications. Assume that each entry is unique because of the time period. Leaves unresolved the question of whether to sum the number of competitors PIIDs or take the max, will default to the latter. 
+
+
+Next let's look at a few dimensions of the dataset. 
+
+Start with the count of records by contracting Agency 
+
+```{r}
+#contracting agency 
+library(ggplot2)
+ggplot(dfs, aes(Contracting.Agency.Name)) +
+    geom_bar(aes(fill = Award.or.IDV.Type)) +
+    coord_flip() 
+```
+
+Drill down to the offices within the Federal Acquisition Service
+
+```{r}
+#contracting agency 
+library(ggplot2)
+ggplot(filter(dfs, Contracting.Agency.Name == 'FEDERAL ACQUISITION SERVICE'),
+              aes(Contracting.Office.Name)) +
+    geom_bar(aes(fill = Award.or.IDV.Type)) +
+    coord_flip() 
+```
+
+Looks like Federal Supply Schedules (FSS) make up the majority of the contract actions. Believe these are a vehicle and so too BPA and IDC, probably want to add category for Award or vehicle type. First, let's get the overall percentages by type. 
+
+```{r}
+pct <- dfs %>%
+    group_by(Award.or.IDV.Type) %>%
+    summarise(cnt = n(), value = sum(Action.Obligation)) %>%
+    mutate(propCnt = cnt / sum(cnt), propSum = value / sum(value))
+
+tbl_df(pct)
+```
+
+Seventy five percent of the records are FSS (45%) or Delivery Order (30%). Seventy percent of the funding comes from Delivery Order (50%) and BPA Calls (19%). 
+
+While we're looking at percentages let's take a similar look at the break down of competition types. 
+
+```{r}
+pct <- dfs %>%
+    group_by(Extent.Competed) %>%
+    summarise(cnt = n(), value = sum(Action.Obligation)) %>%
+    mutate(propCnt = cnt / sum(cnt), propSum = value / sum(value))
+
+tbl_df(pct)
+```
+
+Seventy five percent of the records are listed as completely full and open. Only sixty six percent when weighted by dollars. 
+
+Now we should start to explore patterns in the number of offers... 
