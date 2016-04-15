@@ -6,9 +6,6 @@ require(flux)
 
 #create a unique key for awards and districts, select needed variables
 congress.frame <- fpds %>%
-    mutate(congressId = paste(Principal.Place.of.Performance.State.Code,
-                              Congressional.District.Place.of..Performance,
-                              sep='-')) %>%
     select(uniqueId, congressId, Action.Obligation,
            Funding.Department.Name, PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID, 
            Referenced..IDV.PIID, Modification.Number, 
