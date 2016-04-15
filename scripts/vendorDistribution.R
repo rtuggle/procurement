@@ -4,10 +4,6 @@ require(ggplot2)
 
 #create a unique key for awards and districts, select needed variables
 vendor.frame <- fpds %>%
-  mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID,
-                          Referenced..IDV.PIID, sep='-'),
-         vendorId = paste(DUNS.Number,Global.DUNS.Number,
-                          sep='-')) %>%
   select(uniqueId, vendorId, Action.Obligation,
          Funding.Department.Name, Funding.Department.ID,
          PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID,
@@ -23,15 +19,15 @@ paste('the number of distinct vendors in dataset is:',
       prettyNum(cntVendors, big.mark = ',', scientific = FALSE))
 
 #remove records with NA in CongressId
-noNa <- vendor.frame %>%
+vendNoNa <- vendor.frame %>%
     filter(!grepl("NA", vendorId))
 
-#compare the full and noNa datasets (TASK: bind together to make table)
+#compare the full and vendNoNa datasets (TASK: bind together to make table)
 summarize(vendor.frame, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
-summarize(noNa, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
+summarize(vendNoNa, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
 
 #look for remaining records with more than one DUNS number
-test <- noNa %>%
+test <- vendNoNa %>%
     group_by(uniqueId) %>%
     summarize(mods = n(),
               duns = n_distinct(vendorId),
@@ -44,7 +40,7 @@ test <- noNa %>%
 write.csv(test, file = "../data/exceptionsVendors.csv", row.names = FALSE)
 
 #get the total spending by Funding Department, rank, and get percentages
-chart <- noNa %>%
+chart <- vendNoNa %>%
     group_by(Funding.Department.Name, vendorId) %>%
     summarize(total = sum(Action.Obligation)) %>%
     ungroup() %>%
