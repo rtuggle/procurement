@@ -2,7 +2,7 @@
 require(dplyr)
 
 #create a unique key for awards and districts, select needed variables
-df <- fpds %>%
+congress.frame <- fpds %>%
     mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID, 
                             Referenced..IDV.PIID, sep='-'),
            congressId = paste(Principal.Place.of.Performance.State.Code,
@@ -15,16 +15,16 @@ df <- fpds %>%
            Congressional.District.Place.of..Performance) 
 
 #for reference count how many distinct unique ids
-cntAwards <- n_distinct(df$uniqueId)
+cntAwards <- n_distinct(congress.frame$uniqueId)
 paste('the number of distinct awards in dataset is:', 
       prettyNum(cntAwards, big.mark = ',', scientific = FALSE))
 
 #remove records with NA in CongressId
-noNa <- df %>%
+noNa <- congress.frame %>%
     filter(!grepl("NA", congressId))
 
 #compare the full and noNa datasets (TASK: bind together to make table)
-summarize(df, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
+summarize(congress.frame, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
 summarize(noNa, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
 
 #look for remaining records with more than one district
