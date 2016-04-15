@@ -1,11 +1,12 @@
 ##prep data for congressional analysis
 require(dplyr)
+require(ggplot2)
+require(flux)
+
 
 #create a unique key for awards and districts, select needed variables
 congress.frame <- fpds %>%
-    mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID, 
-                            Referenced..IDV.PIID, sep='-'),
-           congressId = paste(Principal.Place.of.Performance.State.Code,
+    mutate(congressId = paste(Principal.Place.of.Performance.State.Code,
                               Congressional.District.Place.of..Performance,
                               sep='-')) %>%
     select(uniqueId, congressId, Action.Obligation,
@@ -68,3 +69,9 @@ ggplot(data = filter(chart, !grepl("DEPARTMENT",Funding.Department.Name)),
 
 #output data for Tableau
 write.csv(chart, file = "~/Repositories/data/gsaFundCongress_v15APR16.csv", na = "", row.names = FALSE)
+
+
+# calculate area under curve
+
+auc(x, y, thresh = NULL, dens = 100)
+
