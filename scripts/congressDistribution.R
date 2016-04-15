@@ -64,4 +64,7 @@ ggplot(data = filter(chart, !grepl("DEPARTMENT",Funding.Department.Name)),
            group = Funding.Department.Name,
            colour = Funding.Department.Name)) +
     geom_line()
-    
+
+
+#output data for Tableau
+write.csv(chart, file = "~/Repositories/data/gsaFundCongress_v15APR16.csv", na = "", row.names = FALSE)
