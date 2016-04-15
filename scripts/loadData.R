@@ -29,5 +29,15 @@ fpds$Base.and.All.Options.Value <- gsub("[^0-9.]","",fpds$Base.and.All.Options.V
 fpds$Last.Modified.Date <- as.Date(fpds$Last.Modified.Date,"%m/%d/%Y")
 fpds$Effective.Date <- as.Date(fpds$Effective.Date,"%m/%d/%Y")
 
+#add a unique ids per task order and per vendor
+fpds <- fpds %>% mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID,
+                                         Referenced..IDV.PIID, sep='-'),
+                        vendorId = paste(DUNS.Number,Global.DUNS.Number,
+                                         sep='-'), 
+                        congressId = paste(Principal.Place.of.Performance.State.Code,
+                                           Congressional.District.Place.of..Performance,
+                                           sep='-'))
+
+
 #write the frame to a file
-save(fpds, file = 'gsaSource_15APR16.Rda')
+# save(fpds, file = 'gsaSource_15APR16.Rda')
