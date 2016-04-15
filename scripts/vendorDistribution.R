@@ -30,44 +30,48 @@ noNa <- vendor.frame %>%
 summarize(vendor.frame, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
 summarize(noNa, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
 
-#look for remaining records with more than one district
-#this is not meant to happen according to data model
+#look for remaining records with more than one DUNS number
 test <- noNa %>%
     group_by(uniqueId) %>%
-    summarize(districts = n_distinct(vendorId),
+    summarize(mods = n(),
+              duns = n_distinct(vendorId),
               list = paste(vendorId, 
                            collapse = "|")) %>%
-    filter(districts > 1) %>%
-    arrange(desc(districts))
+    filter(duns > 1) %>%
+    arrange(desc(duns))
 
 #write the errors out for examination
 write.csv(test, file = "../data/exceptionsVendors.csv", row.names = FALSE)
 
 #get the total spending by Funding Department, rank, and get percentages
 chart <- noNa %>%
-    group_by(Funding.Department.Name, congressId) %>%
+    group_by(Funding.Department.Name, vendorId) %>%
     summarize(total = sum(Action.Obligation)) %>%
+    ungroup() %>%
     arrange(Funding.Department.Name, desc(total)) %>%
     group_by(Funding.Department.Name) %>%
-    mutate(rank = row_number(), pctFund = (cumsum(total) / sum(total)) * 100, 
-           #pctDistrict = cumsum(rank) / sum(rank))
-        pctDistrict = cumsum(rank) / 435)
+    mutate(rank = row_number(),
+           pctFund = (cumsum(total) / sum(total)) * 100, 
+           pctVendor = cumsum(rank) / sum(rank))
+        #pctVendor = cumsum(rank) / 500)
 
 #chart the results
 ggplot(data = filter(chart, grepl("DEPARTMENT",Funding.Department.Name)),
-       aes(x = pctDistrict, y = pctFund, 
+       aes(x = pctVendor, y = pctFund, 
            group = Funding.Department.Name,
            colour = Funding.Department.Name)) +
     geom_line() +
     scale_x_log10()
 
 
+
 ggplot(data = filter(chart, !grepl("DEPARTMENT",Funding.Department.Name)),
-       aes(x = pctDistrict, y = pctFund, 
+       aes(x = pctVendor, y = pctFund, 
            group = Funding.Department.Name,
            colour = Funding.Department.Name)) +
-    geom_line()
+    geom_line() +
+    scale_x_log10()
 
 
 #output data for Tableau
-write.csv(chart, file = "~/Repositories/data/gsaFundCongress_v15APR16.csv", na = "", row.names = FALSE)
+write.csv(chart, file = "~/Repositories/data/gsaFundVendor_v15APR16.csv", na = "", row.names = FALSE)
