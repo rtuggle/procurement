@@ -11,7 +11,7 @@ congress.frame <- fpds %>%
            Referenced..IDV.PIID, Modification.Number, 
            Principal.Place.of.Performance.State.Code,
            Congressional.District.Place.of..Performance,
-           Contracting.Office.ID,Contracting.Office.ID) 
+           Contracting.Office.Name,Contracting.Office.ID) 
 
 #for reference count how many distinct unique ids
 cntAwards <- n_distinct(congress.frame$uniqueId)
@@ -67,7 +67,66 @@ ggplot(data = filter(congress.funding, !grepl("DEPARTMENT",Funding.Department.Na
 
 
 #output data for Tableau
-write.csv(congress.funding, file = "~/Repositories/data/gsaFundCongress_v15APR16.csv", na = "", row.names = FALSE)
+write.csv(congress.funding, file = "gsaFundCongress_v15APR16.csv", na = "", row.names = FALSE)
 
+
+########################
+
+#get the total spending by Contracting Office, rank, and get percentages
+congress.contracting <- congressNoNa %>%
+  group_by(Contracting.Office.Name, congressId) %>%
+  summarize(total = sum(Action.Obligation)) %>%
+  arrange(Contracting.Office.Name, desc(total)) %>%
+  group_by(Contracting.Office.Name) %>%
+  mutate(rank = row_number(), 
+         pctContract = (cumsum(total) / sum(total)) * 100,
+         pctDistrict = (cumsum(rank) / sum(rank)))
+
+
+#graph the results
+ggplot(data = filter(congress.contracting,grepl("OFFICE",Contracting.Office.Name)),
+       aes(x = pctDistrict, y = pctContract, 
+           group = Contracting.Office.Name,
+           colour = Contracting.Office.Name)) +
+  geom_line() +
+  scale_x_log10()
+
+
+ggplot(data = filter(congress.contracting, !grepl("OFFICE",Contracting.Office.Name) & grepl("FAS",Contracting.Office.Name)),
+       aes(x = pctDistrict, y = pctContract, 
+           group = Contracting.Office.Name,
+           colour = Contracting.Office.Name)) +
+  geom_line() + scale_x_log10()
+
+ggplot(data = filter(congress.contracting, !grepl("OFFICE",Contracting.Office.Name) & !grepl("FAS",Contracting.Office.Name) & grepl("PBS",Contracting.Office.Name)),
+       aes(x = pctDistrict, y = pctContract, 
+           group = Contracting.Office.Name,
+           colour = Contracting.Office.Name)) +
+  geom_line() + scale_x_log10()
+
+ggplot(data = filter(congress.contracting, 
+                     !grepl("OFFICE",Contracting.Office.Name) & 
+                       !grepl("FAS",Contracting.Office.Name) & 
+                       !grepl("PBS",Contracting.Office.Name) &
+                       grepl("CENTER",Contracting.Office.Name)),
+       aes(x = pctDistrict, y = pctContract, 
+           group = Contracting.Office.Name,
+           colour = Contracting.Office.Name)) +
+  geom_line() + scale_x_log10()
+
+
+ggplot(data = filter(congress.contracting, 
+                     !grepl("OFFICE",Contracting.Office.Name) & 
+                       !grepl("FAS",Contracting.Office.Name) & 
+                       !grepl("PBS",Contracting.Office.Name) &
+                       !grepl("CENTER",Contracting.Office.Name)),
+       aes(x = pctDistrict, y = pctContract, 
+           group = Contracting.Office.Name,
+           colour = Contracting.Office.Name)) +
+  geom_line() + scale_x_log10()
+
+
+#output data for Tableau
+write.csv(congress.contracting, file = "gsaContractOfficeCongress_v15APR16.csv", na = "", row.names = FALSE)
 
 
