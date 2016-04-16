@@ -1,0 +1,146 @@
+---
+title: "GSA Exploration"
+author: "Ted Wroblewski"
+date: "Thursday, April 14, 2016"
+output: html.document
+---
+
+Blatantly stole this to load in all of the FPDS Full Files:
+
+```{r}
+require(dplyr)
+require(ggplot2)
+require(pander)
+require(knitr)
+opts.chunk$set(tidy=TRUE)
+
+
+# Load data into single frame from multiple CSV files in directory.
+# Directory of files from Kristin, filenames contain numerical date
+# information that we will want to capture.
+datadir <- "C:/Users/517951/OneDrive - Booz Allen Hamilton/GSA Competition"
+reading.helper <- function(infile, datadir, ...) {
+## Function to read in csv and strip date information from file name
+temp <- read.csv(paste(datadir, infile, sep = "/"), stringsAsFactors = F,
+...)
+temp$period <- gsub("FPDSFULL", "", infile) %>% gsub("\\.csv", "", .)
+return(temp)
+}
+# if (exists(fpds)){rm(fpds)}
+files <- list.files(datadir, pattern = "FPDSFULL[0-9.]*.csv")
+fpds <- do.call(rbind, lapply(files, function(x) reading.helper(x, datadir)))
+# Here are the column headers in the data.frame
+names(fpds)
+```
+
+Whittled down to keep only the variables I would like
+
+```{r}
+fpds.vars <- c("Contracting.Agency.ID", "Contracting.Agency.Name",
+               "Contracting.Department.ID","Contracting.Department.Name",
+               "Contracting.Office.ID", "Contracting.Office.Name", 
+               "Modification.Number", "PIID","PIID.Agency.ID",
+               "Referenced..IDV.PIID", "Referenced.IDV.Agency.ID",
+               "Referenced.IDV.Mod.Number","Solicitation.ID","Completion.Date",
+               "Date.Signed", "Effective.Date","Est..Ultimate.Completion.Date",
+               "Fiscal.Year", "Funding.Agency.ID","Funding.Agency.Name",
+               "Funding.Department.ID","Funding.Department.Name","Funding.Office.ID",
+               "Funding.Office.Name","Type.of.Contract","NAICS.Code",
+               "NAICS.Description", "Product.or.Service.Code",
+               "Product.or.Service.Description", 
+               "Principal.Place.of.Performance.City.Name", 
+               "Principal.Place.of.Performance.Country.Code",
+               "Principal.Place.of.Performance.Country.Name",
+               "Principal.Place.of.Performance.County.Code",
+               "Principal.Place.of.Performance.County.Name",
+               "Principal.Place.of.Performance.Location.Code",
+               "Principal.Place.of.Performance.State.Code",
+               "Extent.Competed", "Number.of.Offers.Received","Type.of.Set.Aside",
+               "Award.or.IDV.Type", "Contractor.Name", "Doing.Business.As.Name",
+               "DUNS.Number","Global.DUNS.Number", "Global.Vendor.Name",
+               "IDV.Who.Can.Use", "Base.and.Exercised.Options.Value",
+               "Action.Obligation", "Base.and.All.Options.Value", "period")
+
+fpds.mine <- fpds[fpds.vars]
+
+```
+
+Creating a PoP variable -- NEED TO FIGURE OUT WHY NEGATIVE POPS
+```{r}
+fpds.mine$End.Date <- as.Date(fpds.mine$Est..Ultimate.Completion.Date,"%m/%d/%Y")
+fpds.mine$Start.Date <- as.Date(fpds.mine$Effective.Date,"%m/%d/%Y")
+
+fpds.mine$pop <- difftime(fpds.mine$End.Date,fpds.mine$Start.Date, units="weeks")
+```
+
+just getting a feel for how many unique instances there are of certain variables
+
+```{r}
+attach(fpds.mine)
+
+unique(Contracting.Agency.Name)
+unique(Contracting.Office.Name)
+unique(Funding.Agency.Name)
+```
+
+Now, I want to line up everything to the contract/DO level and see mods,
+value (NEED TO EXPERIMENT BETWEEN CEILING/ALL OPTIONS, FUNDING/EXERCISED)
+
+```{r}
+library(sqldf)
+library(lucr)
+
+#Creating a unique ID for each contract
+
+fpds_mine <- mutate(fpds.mine, uniqueId = paste(PIID.Agency.ID, PIID, 
+                                                Referenced.IDV.Agency.ID,
+                                                Referenced..IDV.PIID, sep='-'))
+
+colnames(fpds_mine)[colnames(fpds_mine)=="Product.or.Service.Code"] <- 
+  "Product.Service.Code"
+
+colnames(fpds_mine)[colnames(fpds_mine)=="Product.or.Service.Description"] <- 
+  "Product.Service.Description"
+
+names(fpds_mine) <- gsub("\\.", "", names(fpds_mine))
+
+
+#Should also look at adding in further down to offices
+
+fpds_contract <- sqldf("SELECT uniqueID, ContractingAgencyID,
+                       ContractingAgencyName, 
+                       FundingAgencyID,FundingAgencyName, TypeofContract, 
+                       NAICSCode,NAICSDescription, ProductServiceCode,
+                       ProductServiceDescription, TypeofSetAside,
+                       GlobalDUNSNumber, GlobalVendorName,
+                       PrincipalPlaceofPerformanceStateCode,
+                       PrincipalPlaceofPerformanceCountyCode,
+                       Count(ModificationNumber) as Mods,
+                       max(BaseandAllOptionsValue) as Value, max(pop) as PoP,
+                       max(NumberofOffersReceived) as Offers 
+                       FROM fpds_mine 
+                       GROUP BY uniqueID, ContractingAgencyID, 
+                       ContractingAgencyName, FundingAgencyID, 
+                       FundingAgencyName, TypeofContract, NAICSCode,
+                       NAICSDescription, ProductServiceCode,
+                       ProductServiceDescription, TypeofSetAside, 
+                       GlobalDUNSNumber, GlobalVendorName,
+                       PrincipalPlaceofPerformanceStateCode,
+                       PrincipalPlaceofPerformanceCountyCode", stringsAsFactors=TRUE)
+
+fpds_contract$Value2 <- from_currency(as.vector(fpds_contract$Value), decimal_delim = ".")
+
+fpds_contract$Value3 <- ifelse(grepl("-", fpds_contract$Value,), 
+                              -1*fpds_contract$Value2, fpds_contract$Value2)
+#Need to drop Value and Value2 fields in analysis                       
+```
+
+I did a lot of data exploration in rattle and tried to see if I could work a 
+clustering algorithm to no avail.
+
+Export to csv
+
+```{r}
+
+write.csv(fpds_contract, 
+          "C:/Users/517951/OneDrive - Booz Allen Hamilton/GSA Competition/fpds.csv")
