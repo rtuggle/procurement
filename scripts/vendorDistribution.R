@@ -1,6 +1,7 @@
 ##prep data for vendor analysis
 require(dplyr)
 require(ggplot2)
+require(gridExtra)
 
 #create a unique key for awards and districts, select needed variables
 vendor.frame <- fpds %>%
@@ -46,9 +47,8 @@ chart <- vendNoNa %>%
     ungroup() %>%
     arrange(Funding.Department.Name, desc(total)) %>%
     group_by(Funding.Department.Name) %>%
-  mutate(rank = row_number()) %>%
-  mutate(pctFund = (cumsum(total) / sum(total)) * 100,
-         pctVendor = cumsum(rank) / sum(rank))
+  mutate(rank = row_number(),pctFund = (cumsum(total) / sum(total)) * 100,
+         pctVendor = (cumsum(rank) / sum(rank) )*100)
         #pctVendor = cumsum(rank) / 500)
 
 #chart the results
