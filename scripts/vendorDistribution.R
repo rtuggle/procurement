@@ -41,7 +41,7 @@ test <- vendNoNa %>%
 write.csv(test, file = "../data/exceptionsVendors.csv", row.names = FALSE)
 
 #get the total spending by Funding Department, rank, and get percentages
-chart <- vendNoNa %>%
+vendor.funding <- vendNoNa %>%
     group_by(Funding.Department.Name, vendorId) %>%
     summarize(total = sum(Action.Obligation)) %>%
     ungroup() %>%
@@ -52,7 +52,7 @@ chart <- vendNoNa %>%
         #pctVendor = cumsum(rank) / 500)
 
 #chart the results
-ggplot(data = filter(chart, grepl("DEPARTMENT",Funding.Department.Name)),
+ggplot(data = filter(vendor.funding, grepl("DEPARTMENT",Funding.Department.Name)),
        aes(x = pctVendor, y = pctFund, 
            group = Funding.Department.Name,
            colour = Funding.Department.Name)) +
@@ -61,7 +61,7 @@ ggplot(data = filter(chart, grepl("DEPARTMENT",Funding.Department.Name)),
 
 
 
-ggplot(data = filter(chart, !grepl("DEPARTMENT",Funding.Department.Name)),
+ggplot(data = filter(vendor.funding, !grepl("DEPARTMENT",Funding.Department.Name)),
        aes(x = pctVendor, y = pctFund, 
            group = Funding.Department.Name,
            colour = Funding.Department.Name)) +
@@ -70,4 +70,4 @@ ggplot(data = filter(chart, !grepl("DEPARTMENT",Funding.Department.Name)),
 
 
 #output data for Tableau
-write.csv(chart, file = "~/Repositories/data/gsaFundVendor_v15APR16.csv", na = "", row.names = FALSE)
+write.csv(vendor.funding, file = "~/Repositories/data/gsaFundVendor_v15APR16.csv", na = "", row.names = FALSE)
