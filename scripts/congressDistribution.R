@@ -11,7 +11,8 @@ congress.frame <- fpds %>%
            Referenced..IDV.PIID, Modification.Number, 
            Principal.Place.of.Performance.State.Code,
            Congressional.District.Place.of..Performance,
-           Contracting.Office.Name,Contracting.Office.ID) 
+           Contracting.Office.Name,Contracting.Office.ID,
+           Contracting.Agency.Name,Contracting.Agency.Name) 
 
 #for reference count how many distinct unique ids
 cntAwards <- n_distinct(congress.frame$uniqueId)
@@ -73,7 +74,7 @@ write.csv(congress.funding, file = "gsaFundCongress_v15APR16.csv", na = "", row.
 ########################
 
 #get the total spending by Contracting Office, rank, and get percentages
-congress.contracting <- congressNoNa %>%
+congress.con.office <- congressNoNa %>%
   group_by(Contracting.Office.Name, congressId) %>%
   summarize(total = sum(Action.Obligation)) %>%
   arrange(Contracting.Office.Name, desc(total)) %>%
@@ -84,7 +85,7 @@ congress.contracting <- congressNoNa %>%
 
 
 #graph the results
-ggplot(data = filter(congress.contracting,grepl("OFFICE",Contracting.Office.Name)),
+ggplot(data = filter(congress.con.office,grepl("OFFICE",Contracting.Office.Name)),
        aes(x = pctDistrict, y = pctContract, 
            group = Contracting.Office.Name,
            colour = Contracting.Office.Name)) +
@@ -92,19 +93,20 @@ ggplot(data = filter(congress.contracting,grepl("OFFICE",Contracting.Office.Name
   scale_x_log10()
 
 
-ggplot(data = filter(congress.contracting, !grepl("OFFICE",Contracting.Office.Name) & grepl("FAS",Contracting.Office.Name)),
+ggplot(data = filter(congress.con.office, !grepl("OFFICE",Contracting.Office.Name) & grepl("FAS",Contracting.Office.Name)),
        aes(x = pctDistrict, y = pctContract, 
            group = Contracting.Office.Name,
            colour = Contracting.Office.Name)) +
   geom_line() + scale_x_log10()
 
-ggplot(data = filter(congress.contracting, !grepl("OFFICE",Contracting.Office.Name) & !grepl("FAS",Contracting.Office.Name) & grepl("PBS",Contracting.Office.Name)),
+ggplot(data = filter(congress.con.office, 
+                     !grepl("OFFICE",Contracting.Office.Name) & !grepl("FAS",Contracting.Office.Name) & grepl("PBS",Contracting.Office.Name)),
        aes(x = pctDistrict, y = pctContract, 
            group = Contracting.Office.Name,
            colour = Contracting.Office.Name)) +
   geom_line() + scale_x_log10()
 
-ggplot(data = filter(congress.contracting, 
+ggplot(data = filter(congress.con.office, 
                      !grepl("OFFICE",Contracting.Office.Name) & 
                        !grepl("FAS",Contracting.Office.Name) & 
                        !grepl("PBS",Contracting.Office.Name) &
@@ -115,7 +117,7 @@ ggplot(data = filter(congress.contracting,
   geom_line() + scale_x_log10()
 
 
-ggplot(data = filter(congress.contracting, 
+ggplot(data = filter(congress.con.office, 
                      !grepl("OFFICE",Contracting.Office.Name) & 
                        !grepl("FAS",Contracting.Office.Name) & 
                        !grepl("PBS",Contracting.Office.Name) &
@@ -127,6 +129,32 @@ ggplot(data = filter(congress.contracting,
 
 
 #output data for Tableau
-write.csv(congress.contracting, file = "gsaContractOfficeCongress_v15APR16.csv", na = "", row.names = FALSE)
+write.csv(congress.con.office, file = "gsaContractOfficeCongress_v15APR16.csv", na = "", row.names = FALSE)
+
+########################
+
+#get the total spending by Contracting Agency, rank, and get percentages
+congress.con.agency <- congressNoNa %>%
+  group_by(Contracting.Agency.Name, congressId) %>%
+  summarize(total = sum(Action.Obligation)) %>%
+  arrange(Contracting.Agency.Name, desc(total)) %>%
+  group_by(Contracting.Agency.Name) %>%
+  mutate(rank = row_number(), 
+         pctContract = (cumsum(total) / sum(total)) * 100,
+         pctDistrict = (cumsum(rank) / sum(rank)))
+
+
+#graph the results
+ggplot(data = congress.con.agency ,
+       aes(x = pctDistrict, y = pctContract, 
+           group = Contracting.Agency.Name,
+           colour = Contracting.Agency.Name)) +
+  geom_line() +
+  scale_x_log10()
+
+
+#output data for Tableau
+write.csv(congress.con.agency, file = "gsaContractAgencyCongress_v15APR16.csv", na = "", row.names = FALSE)
+
 
 
