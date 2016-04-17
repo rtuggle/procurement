@@ -4,10 +4,11 @@ require(MESS)
 ##Build feature set for contracting offices
 
 office.frame <- fpds %>%
-    select(Contracting.Office.ID, uniqueId, vendorId, congressId, NAICS.Code, 
+    select(Contracting.Office.ID, Fiscal.Year,
+           uniqueId, vendorId, congressId, NAICS.Code, 
            Action.Obligation, Number.of.Offers.Received, 
            Extent.Competed, Reason.Not.Awarded.To..Small.Business, 
-           catAward, NAICS2, industrySector, 
+           catAward, naicsTwo, naicsThree, naicsFour, 
            Award.or.IDV.Type, Type.of.Contract, Type.of.Set.Aside,
            Fair.Opportunity.Limited.Sources, Other.Than.Full.and.Open.Competition,
            Effective.Date, Completion.Date,
@@ -23,25 +24,85 @@ office.frame <- fpds %>%
            Is.Vendor.Business.Type...Economically.Disadvantaged.Women.Owned.Small.Business,
            Is.Vendor.Business.Type...Joint.Venture.Economically.Disadvantaged.Women.Owned.Small.Business,
            Is.Vendor.Business.Type...Joint.Venture.Women.Owned.Small.Business, 
+           Is.Vendor.Business.Type...Women.Owned.Small.Business,
+           Is.Vendor...Alaskan.Native.Corporation.Owned.Firm,
+           Is.Vendor...American.Indian.Owned,
+           Is.Vendor...Black.American.Owned,
+           Is.Vendor...Domestic.Shelter,
+           Is.Vendor...DoT.Certified.Disadvantaged.Business.Enterprise,
+           Is.Vendor...Emerging.Small.Business,
+           Is.Vendor...Hispanic.American.Owned,
+           Is.Vendor...Indian.Tribe,
+           Is.Vendor...Minority.Owned.Business,
+           Is.Vendor...Native.American.Owned,
+           Is.Vendor...Native.Hawaiian.Organization.Owned.Firm,
+           Is.Vendor...Other.Minority.Owned,
+           Is.Vendor...SBA.Certified.8..a..Joint.Venture,
+           Is.Vendor...SBA.Certified.8.a..Program.Participant,
+           Is.Vendor...SBA.Certified.Hub.Zone.firm,
+           Is.Vendor...SBA.Certified.Small.Disadvantaged.Business,
+           Is.Vendor...Self.Certifed.Small.Disadvantaged.Business,
+           Is.Vendor...Service.Disabled.Veteran.Owned.Business,
+           Is.Vendor...Subcontinent.Asian..Asian.Indian..American.Owned,
+           Is.Vendor...Tribally.Owned,
+           Is.Vendor...Veteran.Owned.Business,
+           Is.Vendor...Woman.Owned.Business,
+           Is.Vendor.Business.Type...Economically.Disadvantaged.Women.Owned.Small.Business,
            Is.Vendor.Business.Type...Women.Owned.Small.Business) 
 
-add <- office.frame %>%
-    mutate(competed = ifelse(Other.Than.Full.and.Open.Competition == "", 1, 0)) %>%
-    select(Extent.Competed, Fair.Opportunity.Limited.Sources, competed) %>%
-    filter(grepl("FOLLOW", Fair.Opportunity.Limited.Sources) & competed == 0)
+#get the number of offers by office
+offers <- office.frame %>%
+    mutate(holdOffers = ifelse(Number.of.Offers.Received == 999, NA, 
+                                 Number.of.Offers.Received)) %>%
+    select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, uniqueId, holdOffers, 
+           Action.Obligation) %>%
+    group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, uniqueId) %>%
+    summarize(numberOffers = max(holdOffers, na.rm = TRUE), 
+              amountDollars = sum(Action.Obligation),
+              numberAwards = n_distinct(uniqueId),
+              numberActions = n()) %>%
+    ungroup() %>%
+    mutate(weightedOffers = numberOffers * amountDollars) %>%
+    group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
+    summarize(sumActions = sum(numberActions), sumAwards = sum(numberAwards),
+              sumDollars = sum(amountDollars), sumOffers = sum(numberOffers), 
+              meanOffers = mean(numberOffers), medianOffers = median(numberOffers), 
+              maxOffers = max(numberOffers),
+              wtavgOffers = sum(weightedOffers) / sum(amountDollars))
 
+#get the percent with no set asides
+setaside <- office.frame %>%
+    mutate(indNoSetAside = ifelse(grepl("NO SET", Type.of.Set.Aside) | 
+                                is.na(Type.of.Set.Aside), 1, 0)) %>%
+    mutate(weightNoSetAside = indNoSetAside * Action.Obligation) %>%
+    select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
+           indNoSetAside, weightNoSetAside,
+           Action.Obligation) %>%
+    group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
+    summarize(pctNoSetAside = sum(indNoSetAside) / n(), 
+              wtpctNoSetAside = sum(weightNoSetAside) / sum(Action.Obligation))
+#....
+#pct of actions that are firm fixed price (Type.of.Contract) include the weighted val
+#pct hDisadvantaged, check the git hub for list of variables recommend paste together
+#and grepl for "YES" (double check), include the weighted val
+#concentration values for offices for vendor (vendorId), geography (congressId)
+#see below for example of start, need to add the other dimensions
 require(MESS)
-vendor.funding <- office.frame %>%
+vendorConc <- office.frame %>%
     filter(!grepl("NA", vendorId)) %>%
-    group_by(Contracting.Office.ID, vendorId) %>%
+    group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, vendorId) %>%
     summarize(dollars = sum(Action.Obligation)) %>%
     ungroup() %>%
     arrange(Contracting.Office.ID, desc(dollars)) %>%
     group_by(Contracting.Office.ID) %>%
-    mutate(rank = row_number(), pctFund = cumsum(dollars) / sum(dollars),
+    mutate(rank = row_number(), pctOffice = cumsum(dollars) / sum(dollars),
            pctVendor = cumsum(rank) / sum(rank)) %>%
-    filter(!is.na(pctFund)) %>%
-    summarize(concVendor = MESS::auc(pctVendor,pctFund,type = 'spline')) 
+    filter(!is.na(pctOffice)) %>%
+    summarize(vendorConc = MESS::auc(pctVendor,pctOffice,type = 'spline')) 
 
+#put them togeher
+featureOffice <- offers %>%
+    full_join(setaside, by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year',
+                               'catAward'))
 
 
