@@ -78,5 +78,11 @@ test <- fpds %>%
                                            Congressional.District.Place.of..Performance,
                                            sep='-'))
 
+# Add Keys needed in Tablea for Congressional Districts
+
+
+test <- test %>% mutate(CD.Place.Key=paste0("CD",Congressional.District.Place.of..Performance),
+                        CD.Contractor.Key=paste0("CD",Congressional.District...Contractor))
 
 #write the frame to a file
+write.csv(test,file="whole_data_with_keys.csv",na="")
