@@ -1,6 +1,9 @@
+## Load Packages
+require(MESS)
+
 ##Build feature set for contracting offices
 
-df <- fpds %>%
+office.frame <- fpds %>%
     select(Contracting.Office.ID, uniqueId, vendorId, congressId, NAICS.Code, 
            Action.Obligation, Number.of.Offers.Received, 
            Extent.Competed, Reason.Not.Awarded.To..Small.Business, 
@@ -22,13 +25,13 @@ df <- fpds %>%
            Is.Vendor.Business.Type...Joint.Venture.Women.Owned.Small.Business, 
            Is.Vendor.Business.Type...Women.Owned.Small.Business) 
 
-add <- df %>%
+add <- office.frame %>%
     mutate(competed = ifelse(Other.Than.Full.and.Open.Competition == "", 1, 0)) %>%
     select(Extent.Competed, Fair.Opportunity.Limited.Sources, competed) %>%
     filter(grepl("FOLLOW", Fair.Opportunity.Limited.Sources) & competed == 0)
 
 require(MESS)
-vendor.funding <- df %>%
+vendor.funding <- office.frame %>%
     filter(!grepl("NA", vendorId)) %>%
     group_by(Contracting.Office.ID, vendorId) %>%
     summarize(dollars = sum(Action.Obligation)) %>%
