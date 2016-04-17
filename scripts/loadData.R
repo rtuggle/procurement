@@ -2,7 +2,7 @@ require(dplyr)
 
 ##script to create data frame of fpds data
 #define the directory location of the data files 
-datadir <- '~/Repositories/data/FPDS_20160414'
+datadir <- '../data/FPDS_20160414'
 
 #create function that takes the filename and adds it to the dataset
 #will use this function in do.call below
@@ -38,11 +38,11 @@ catAward <- c(rep('Award', 4), rep('Vehicle', 5))
 award <- data.frame(Award.or.IDV.Type, catAward, stringsAsFactors = FALSE)
 
 #add categories for two digit NAICS
-naics <- read.csv('~/Repositories/data/lookNaics.csv', stringsAsFactors = FALSE)
+naics <- read.csv('../data/lookNaics.csv', stringsAsFactors = FALSE)
 naics$codeNaics <- as.character(naics$codeNaics)
 
 #add a unique ids per task order and per vendor
-test <- fpds %>% 
+fpds <- fpds %>% 
     #add award class -> vehicle or award
     left_join(award, by = 'Award.or.IDV.Type') %>%
     #add NAICS levels 2 through 5
@@ -81,8 +81,8 @@ test <- fpds %>%
 # Add Keys needed in Tablea for Congressional Districts
 
 
-test <- test %>% mutate(CD.Place.Key=paste0("CD",Congressional.District.Place.of..Performance),
+fpds <- fpds %>% mutate(CD.Place.Key=paste0("CD",Congressional.District.Place.of..Performance),
                         CD.Contractor.Key=paste0("CD",Congressional.District...Contractor))
 
 #write the frame to a file
-write.csv(test,file="whole_data_with_keys.csv",na="")
+write.csv(fpds,file="whole_data_with_keys_20160417.csv",na="",row.names=F)
