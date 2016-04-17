@@ -59,6 +59,7 @@ fpds <- fpds %>%
     left_join(naics[,c(2,6)], by = 'codeNaics') %>%
     mutate(naicsFive = titleNaics5) %>% select(-contains("titleNaics"))
 
+
 fpds <- fpds %>%
   #add competed class
   mutate(compType = ifelse(
@@ -87,6 +88,7 @@ fpds <- fpds %>% mutate(CD.Place.Key=paste0("CD",Congressional.District.Place.of
 
 
 ## Add Contracting Region Groups
+
 
 fpds$Contracting.Group.ID <- NA
 fpds$Contracting.Group.ID[is.na(fpds$Contracting.Office.Region)] <- paste("NA -",fpds$Contracting.Agency.Name[is.na(fpds$Contracting.Office.Region)])
