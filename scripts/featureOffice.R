@@ -38,7 +38,7 @@ vendor.funding <- df %>%
     mutate(rank = row_number(), pctFund = cumsum(dollars) / sum(dollars),
            pctVendor = cumsum(rank) / sum(rank)) %>%
     filter(!is.na(pctFund)) %>%
-    summarize(area = MESS::auc(pctVendor,pctFund,type = 'spline')) 
+    summarize(concVendor = MESS::auc(pctVendor,pctFund,type = 'spline')) 
 
 
 
