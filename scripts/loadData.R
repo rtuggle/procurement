@@ -28,9 +28,26 @@ fpds$Base.and.All.Options.Value <- gsub("[^0-9.]","",fpds$Base.and.All.Options.V
 #convert dates to date objects
 fpds$Last.Modified.Date <- as.Date(fpds$Last.Modified.Date,"%m/%d/%Y")
 fpds$Effective.Date <- as.Date(fpds$Effective.Date,"%m/%d/%Y")
+fpds$Completion.Date <- as.Date(fpds$Completion.Date,"%m/%d/%Y")
+fpds$Signed.Date <- as.Date(fpds$Signed.Date,"%m/%d/%Y")
+
+#add categories for award type
+Award.or.IDV.Type <- c('DELIVERY ORDER', 'PURCHASE ORDER', 'BPA CALL', 'DEFINITIVE CONTRACT',
+         'IDC', 'FSS', 'BPA', 'GWAC', 'BOA')
+catAward <- c(rep('Award', 4), rep('Vehicle', 5))
+award <- data.frame(Award.or.IDV.Type, catAward)
+
+#add categories for two digit NAICS
+naics <- read.csv('~/Repositories/data/naics2.csv', stringsAsFactors = FALSE)
+naics <- naics %>%
+    mutate(NAICS2 = as.character(NAICS2))
 
 #add a unique ids per task order and per vendor
-fpds <- fpds %>% mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID,
+fpds <- fpds %>% 
+    left_join(award, by = 'Award.or.IDV.Type') %>%
+    mutate(NAICS2 = substr(NAICS.Code, 1, 2)) %>%
+    left_join(naics, by = 'NAICS2') %>%
+    mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID,
                                          Referenced..IDV.PIID, sep='-'),
                         vendorId = paste(DUNS.Number,Global.DUNS.Number,
                                          sep='-'), 
