@@ -8,7 +8,7 @@ datadir <- '../data/FPDS_20160414'
 #will use this function in do.call below
 read.helper <- function(infile,datadir,...){
     ## Function to read in csv and strip date information from file name
-    temp <- read.csv(paste(datadir,infile,sep="/"), stringsAsFactors = F,...)
+    temp <- read.csv(paste(datadir,infile,sep="/"), stringsAsFactors = F,na.strings = c("NA",""),...)
     temp$period <- gsub("FPDS","",infile) %>% gsub("\\.csv","",.)
     return(temp)
 }
@@ -38,51 +38,62 @@ catAward <- c(rep('Award', 4), rep('Vehicle', 5))
 award <- data.frame(Award.or.IDV.Type, catAward, stringsAsFactors = FALSE)
 
 #add categories for two digit NAICS
-naics <- read.csv('../data/lookNaics.csv', stringsAsFactors = FALSE)
+naics <- read.csv('data/lookNaics.csv', stringsAsFactors = FALSE)
 naics$codeNaics <- as.character(naics$codeNaics)
 
 #add a unique ids per task order and per vendor
 fpds <- fpds %>% 
-    #add award class -> vehicle or award
+    ## add award class -> vehicle or award
     left_join(award, by = 'Award.or.IDV.Type') %>%
-    #add NAICS levels 2 through 5
+    ## add NAICS levels 2 through 5
     mutate(codeNaics = substr(NAICS.Code, 1, 2)) %>%
     left_join(naics[, c(2,3)], by = 'codeNaics') %>%
-    mutate(naicsTwo = titleNaics2, naicsSector = titleNaics2) %>%
+    mutate(naicsTwo = titleNaics2) %>%
     mutate(codeNaics = substr(NAICS.Code, 1, 3)) %>%
     left_join(naics[,c(2,4)], by = 'codeNaics') %>%
-    mutate(naicsThree = titleNaics3, naicsSubsector = titleNaics3) %>%
+    mutate(naicsThree = titleNaics3) %>%
     mutate(codeNaics4 = substr(NAICS.Code, 1, 4)) %>%
     left_join(naics[,c(2,5)], by = 'codeNaics') %>%
-    mutate(naicsFour = titleNaics4, naicsGroup = titleNaics4) %>%
+    mutate(naicsFour = titleNaics4) %>%
     mutate(codeNaics5 = substr(NAICS.Code, 1, 5)) %>%
     left_join(naics[,c(2,6)], by = 'codeNaics') %>%
-    mutate(naicsFive = titleNaics5, naicsClass = titleNaics5) %>%
-    #add competed class
-    mutate(compType = ifelse(grepl("NOT", Extent.Competed) | grepl("NON-C",Extent.Competed) |
-                             grepl("FOLLOW", Extent.Competed), "Not Competed",
-                             ifelse(!grepl("FAIR", Fair.Opportunity.Limited.Sources) &
-                                        Fair.Opportunity.Limited.Sources != "", 
-                                    "Not Competed", "Competed"))) %>%
-    mutate(bidType = ifelse(Number.of.Offers.Received > 1, "Multiple Offers", 
-                            ifelse(Number.of.Offers.Received == 1, "One Offer",
-                                   Number.of.Offers.Received))) %>%
-    mutate(compCat = ifelse(compType == "Not Competed", "Not Competed",
-                            ifelse(bidType == "Multiple Offers", "Effectively Competed",
-                                   ifelse(bidType == "One Offer", "One Bid", NA)))) %>%           
-    mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID,
-                                         Referenced..IDV.PIID, sep='-'),
-                        vendorId = paste(DUNS.Number,Global.DUNS.Number,
-                                         sep='-'), 
-                        congressId = paste(Principal.Place.of.Performance.State.Code,
-                                           Congressional.District.Place.of..Performance,
-                                           sep='-'))
+    mutate(naicsFive = titleNaics5)
+
+fpds <- fpds %>%
+  #add competed class
+  mutate(compType = ifelse(
+    grepl("NOT", Extent.Competed) | grepl("NON-C",Extent.Competed) |
+      grepl("FOLLOW", Extent.Competed), "Not Competed",
+    ifelse(!grepl("FAIR", Fair.Opportunity.Limited.Sources) &
+             Fair.Opportunity.Limited.Sources != "", "Not Competed", "Competed"))) %>%
+  mutate(bidType = ifelse(
+    Number.of.Offers.Received > 1, "Multiple Offers",
+    ifelse(Number.of.Offers.Received == 1, "One Offer", Number.of.Offers.Received))) %>%
+  mutate(compCat = ifelse(
+    compType == "Not Competed", "Not Competed",
+    ifelse(bidType == "Multiple Offers", "Effectively Competed",
+           ifelse(bidType == "One Offer", "One Bid", NA)))) %>%
+  mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID, Referenced..IDV.PIID, sep='-'),
+         vendorId = paste(DUNS.Number,Global.DUNS.Number,sep='-'), 
+         congressId = paste(Principal.Place.of.Performance.State.Code,
+                            Congressional.District.Place.of..Performance, sep='-'))
 
 # Add Keys needed in Tablea for Congressional Districts
-
 
 fpds <- fpds %>% mutate(CD.Place.Key=paste0("CD",Congressional.District.Place.of..Performance),
                         CD.Contractor.Key=paste0("CD",Congressional.District...Contractor))
 
+
+## Add Contracting Region Groups
+
+fpds <- fpds %>% mutate(Contracting.Group.ID = paste(Contracting.Agency.ID, Contracting.Office.Region,sep="-"))
+
+
+
+fpds$Contracting.Group.ID <- NA
+fpds$Contracting.Group.ID[is.na(fpds$Contracting.Office.Region)] <- paste("NA -",fpds$Contracting.Agency.Name[is.na(fpds$Contracting.Office.Region)])
+fpds$Contracting.Group.ID[!is.na(fpds$Contracting.Office.Region)] <- paste0("R",fpds$Contracting.Office.Region[!is.na(fpds$Contracting.Office.Region)],
+                                                                           " - ",fpds$Contracting.Agency.Name[!is.na(fpds$Contracting.Office.Region)])
+
 #write the frame to a file
-write.csv(fpds,file="whole_data_with_keys_20160417.csv",na="",row.names=F)
+write.csv(fpds,file="whole_data_with_keys_20160417_v2.csv",na="",row.names=F)
