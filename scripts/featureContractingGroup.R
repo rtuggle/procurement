@@ -2,7 +2,7 @@
 require(MESS)
 
 
-##Build feature set for contracting offices
+##Build feature set for contracting groups
 
 group.frame <- fpds %>%
     select(Contracting.Group.ID, Fiscal.Year,
@@ -24,20 +24,20 @@ group.frame <- fpds %>%
 ) 
 
 
-#get the number of offers by office
+#get the number of offers by group
 offers <- group.frame %>%
     mutate(holdOffers = ifelse(Number.of.Offers.Received == 999, NA, 
                                  Number.of.Offers.Received)) %>%
-    select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, uniqueId, holdOffers, 
+    select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat, uniqueId, holdOffers, 
            Action.Obligation) %>%
-    group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward,  uniqueId) %>%
+    group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat,  uniqueId) %>%
     summarize(numberOffers = max(holdOffers, na.rm = TRUE), 
               amountDollars = sum(Action.Obligation),
               numberAwards = n_distinct(uniqueId),
               numberActions = n()) %>%
     ungroup() %>%
     mutate(weightedOffers = numberOffers * amountDollars) %>%
-    group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>%
+    group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
     summarize(sumActions = sum(numberActions), sumAwards = sum(numberAwards),
               sumDollars = sum(amountDollars), sumOffers = sum(numberOffers), 
               meanOffers = mean(numberOffers), medianOffers = median(numberOffers), 
@@ -49,9 +49,9 @@ setaside <- group.frame %>%
     mutate(indNoSetAside = ifelse(grepl("NO SET", Type.of.Set.Aside) | 
                                 is.na(Type.of.Set.Aside), 1, 0)) %>%
     mutate(weightNoSetAside = indNoSetAside * Action.Obligation) %>%
-    select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward,indNoSetAside, weightNoSetAside,
+    select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat,indNoSetAside, weightNoSetAside,
            Action.Obligation) %>%
-    group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>%
+    group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
     summarize(propNoSetAside = sum(indNoSetAside) / n(), 
               wtpropNoSetAside = sum(weightNoSetAside) / sum(Action.Obligation))
 
@@ -60,9 +60,9 @@ setaside <- group.frame %>%
 firmfixed <- group.frame %>%
   mutate(FirmFixedPrice = ifelse(grepl("FIRM FIXED PRICE", Type.of.Contract), 1, 0)) %>%
   mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
-  select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, 
+  select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat, 
          FirmFixedPrice, weightFirmFixed, Action.Obligation) %>%
-  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>%
+  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
   summarize(propFirmFixed = sum(FirmFixedPrice) / n(), 
             wtpropFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
 
@@ -71,9 +71,9 @@ firmfixed <- group.frame %>%
 
 historical.disadv <- group.frame %>%
   mutate(weightHistDis = histDisAdv * Action.Obligation) %>%
-  select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, 
+  select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat, 
          histDisAdv, weightHistDis, Action.Obligation) %>%
-  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>%
+  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
   summarize(propHistDis = sum(histDisAdv) / n(), 
             wtpropHistDis = sum(weightHistDis) / sum(Action.Obligation))
 
@@ -82,9 +82,9 @@ historical.disadv <- group.frame %>%
 competed <- group.frame %>%
   mutate(binCompeted = ifelse(!grepl("Not", compCat), 1, 0)) %>%
   mutate(weightCompeted = binCompeted * Action.Obligation) %>%
-  select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward,binCompeted, weightCompeted,
+  select(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat,binCompeted, weightCompeted,
          Action.Obligation) %>%
-  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>%
+  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
   summarize(propCompete = sum(binCompeted) / n(), 
             wtpropCompeted = sum(weightCompeted) / sum(Action.Obligation))
 #....
@@ -96,11 +96,11 @@ competed <- group.frame %>%
 
 vendorConc <- group.frame %>%
   filter(!grepl("NA", vendorId)) %>%
-  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, vendorId) %>%
+  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat, vendorId) %>%
   summarize(dollars = sum(Action.Obligation)) %>%
-  arrange(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward,
+  arrange(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat,
           desc(dollars)) %>%
-  ungroup() %>% group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>% 
+  ungroup() %>% group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>% 
   mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
          propVendor = cumsum(rank) / sum(rank)) %>%
   filter(!is.na(propGroup)) %>%
@@ -110,11 +110,11 @@ vendorConc <- group.frame %>%
 
 congressConc <- group.frame %>%
   filter(!grepl("NA", congressId)) %>%
-  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, congressId) %>%
+  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat, congressId) %>%
   summarize(dollars = sum(Action.Obligation)) %>%
-  arrange(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward,
+  arrange(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat,
           desc(dollars)) %>%
-  ungroup() %>% group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>% 
+  ungroup() %>% group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>% 
   mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
          propCongress = cumsum(rank) / sum(rank)) %>%
   filter(!is.na(propGroup)) %>%
@@ -124,13 +124,14 @@ congressConc <- group.frame %>%
 
 #put them togeher
 featureGroup <- offers %>%
-    full_join(setaside, by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
-  full_join(firmfixed,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
-  full_join(historical.disadv,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
-  full_join(competed,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
-  full_join(vendorConc,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward'))
+    full_join(setaside, by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat')) %>%
+  full_join(firmfixed,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat')) %>%
+  full_join(historical.disadv,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat')) %>%
+  full_join(competed,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat')) %>%
+  full_join(vendorConc,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat')) %>%
+  full_join(congressConc,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat'))
 
-write.csv(featureGroup, "Contracting_Group_Features_20160418.csv",na="",row.names = FALSE)
+write.csv(featureGroup, "Contracting_Group_Features_20160418_v3.csv",na="",row.names = FALSE)
   
 
 
