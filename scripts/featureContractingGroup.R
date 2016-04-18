@@ -1,10 +1,6 @@
 ## Load Packages
 require(MESS)
 
-# read in list of Historically Disadvantaged Categories
-hdis <- read.csv('data/listDisadvantaged.csv',stringsAsFactors = FALSE) %>% filter( Priviliged == "Yes")
-hdis.list <- trimws(hdis$Vars)
-
 
 ##Build feature set for contracting offices
 
@@ -24,42 +20,8 @@ group.frame <- fpds %>%
            PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID, 
            Referenced..IDV.PIID, Modification.Number, 
            Principal.Place.of.Performance.State.Code,
-           Congressional.District.Place.of..Performance, 
-           Is.Vendor...Emerging.Small.Business,
-           Is.Vendor.Business.Type...Economically.Disadvantaged.Women.Owned.Small.Business,
-           Is.Vendor.Business.Type...Joint.Venture.Economically.Disadvantaged.Women.Owned.Small.Business,
-           Is.Vendor.Business.Type...Joint.Venture.Women.Owned.Small.Business, 
-           Is.Vendor.Business.Type...Women.Owned.Small.Business,
-           Is.Vendor...Alaskan.Native.Corporation.Owned.Firm,
-           Is.Vendor...American.Indian.Owned,
-           Is.Vendor...Black.American.Owned,
-           Is.Vendor...Domestic.Shelter,
-           Is.Vendor...DoT.Certified.Disadvantaged.Business.Enterprise,
-           Is.Vendor...Emerging.Small.Business,
-           Is.Vendor...Hispanic.American.Owned,
-           Is.Vendor...Indian.Tribe,
-           Is.Vendor...Minority.Owned.Business,
-           Is.Vendor...Native.American.Owned,
-           Is.Vendor...Native.Hawaiian.Organization.Owned.Firm,
-           Is.Vendor...Other.Minority.Owned,
-           Is.Vendor...SBA.Certified.8..a..Joint.Venture,
-           Is.Vendor...SBA.Certified.8.a..Program.Participant,
-           Is.Vendor...SBA.Certified.Hub.Zone.firm,
-           Is.Vendor...SBA.Certified.Small.Disadvantaged.Business,
-           Is.Vendor...Self.Certifed.Small.Disadvantaged.Business,
-           Is.Vendor...Service.Disabled.Veteran.Owned.Business,
-           Is.Vendor...Subcontinent.Asian..Asian.Indian..American.Owned,
-           Is.Vendor...Tribally.Owned,
-           Is.Vendor...Veteran.Owned.Business,
-           Is.Vendor...Woman.Owned.Business,
-           Is.Vendor.Business.Type...Economically.Disadvantaged.Women.Owned.Small.Business,
-           Is.Vendor.Business.Type...Women.Owned.Small.Business) 
-
-# Add indicator of whether Vendor is member of historically disadvantaged group
-group.frame$histDisAdv <- 0
-for (pop in hdis.list){
-  group.frame$histDisAdv[group.frame[[pop]] == "YES"] <- 1
-}
+           Congressional.District.Place.of..Performance
+) 
 
 
 #get the number of offers by office
@@ -124,25 +86,25 @@ historical.disadvantage <- group.frame %>%
 #concentration values for offices for vendor (vendorId), geography (congressId)
 #see below for example of start, need to add the other dimensions
 
-vendorConc <- group.frame %>%
-    filter(!grepl("NA", vendorId)) %>%
-    group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, vendorId) %>%
-    summarize(dollars = sum(Action.Obligation)) %>%
-    ungroup() %>%
-    arrange(Contracting.Group.ID, desc(dollars)) %>%
-    group_by(Contracting.Group.ID) %>%
-    mutate(rank = row_number(), pctOffice = cumsum(dollars) / sum(dollars),
-           pctVendor = cumsum(rank) / sum(rank)) %>%
-    filter(!is.na(pctOffice)) %>%
-    summarize(vendorConc = MESS::auc(pctVendor,pctOffice,type = 'spline')) 
+vendorConc <- office.frame %>%
+  filter(!grepl("NA", vendorId)) %>%
+  group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, vendorId) %>%
+  summarize(dollars = sum(Action.Obligation)) %>%
+  arrange(Contracting.Group.ID, Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
+          desc(dollars)) %>%
+  ungroup() %>% group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward) %>% 
+  mutate(rank = row_number(), pctGroup = cumsum(dollars) / sum(dollars),
+         pctVendor = cumsum(rank) / sum(rank)) %>%
+  filter(!is.na(pctGroup)) %>%
+  summarize(vendorConc = MESS::auc(pctVendor,pctGroup,type = 'spline')) 
 
 #put them togeher
-featureOffice <- offers %>%
+featureGroup <- offers %>%
     full_join(setaside, by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
   full_join(firmfixed,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
   full_join(historical.disadvantage,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward'))
 
-write.csv(featureOffice, "Contracting_Office_Features_20160418.csv",na="",row.names = FALSE)
+write.csv(featureGroup, "Contracting_Group_Features_20160418.csv",na="",row.names = FALSE)
   
 
 
