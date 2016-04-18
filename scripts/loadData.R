@@ -30,6 +30,11 @@ fpds$Last.Modified.Date <- as.Date(fpds$Last.Modified.Date,"%m/%d/%Y")
 fpds$Effective.Date <- as.Date(fpds$Effective.Date,"%m/%d/%Y")
 fpds$Completion.Date <- as.Date(fpds$Completion.Date,"%m/%d/%Y")
 fpds$Signed.Date <- as.Date(fpds$Signed.Date,"%m/%d/%Y")
+fpds$Est..Ultimate.Completion.Date <- as.Date(fpds$Est..Ultimate.Completion.Date,"%m/%d/%Y")
+
+# add duration value
+fpds <- fpds %>% mutate(Est.Pd.Perf = as.numeric(difftime(Est..Ultimate.Completion.Date,
+                                                          Effective.Date, units="days")))
 
 #add categories for award type
 Award.or.IDV.Type <- c('DELIVERY ORDER', 'PURCHASE ORDER', 'BPA CALL', 'DEFINITIVE CONTRACT',
@@ -97,4 +102,4 @@ fpds <- fpds %>% mutate(GSA.Funded = ifelse(Funding.Department.ID == "4700","Yes
 
 
 #write the frame to a file
-write.csv(fpds,file="whole_data_with_keys_20160417_v2.csv",na="",row.names=F)
+write.csv(fpds,file="whole_data_with_keys_20160418_v1.csv",na="",row.names=F)
