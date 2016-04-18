@@ -1,6 +1,11 @@
 ## Load Packages
 require(MESS)
 
+# read in list of Historically Disadvantaged Categories
+hdis <- read.csv('data/listDisadvantaged.csv',stringsAsFactors = FALSE) %>% filter( Priviliged == "Yes")
+hdis.list <- trimws(hdis$Vars)
+
+
 ##Build feature set for contracting offices
 
 office.frame <- fpds %>%
@@ -86,6 +91,19 @@ setaside <- office.frame %>%
 #get the percent with firm fixed price 
 firmfixed <- office.frame %>%
   mutate(FirmFixedPrice = ifelse(grepl("FIRM FIXED PRICE", Type.of.Contract), 1, 0)) %>%
+  mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
+  select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
+         FirmFixedPrice, weightFirmFixed,
+         Action.Obligation) %>%
+  group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
+  summarize(pctFirmFixed = sum(FirmFixedPrice) / n(), 
+            wtpctFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
+
+
+#get the percent from historically disadvantaged vendors
+firmfixed <- office.frame %>%
+  #fpds[which(fpds[,c(hdis.list)] == "YES"),]  HisDisAdv
+  mutate(ifelse(grepl("FIRM FIXED PRICE", Type.of.Contract), 1, 0)) %>%
   mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
   select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
          FirmFixedPrice, weightFirmFixed,
