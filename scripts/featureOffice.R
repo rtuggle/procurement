@@ -8,7 +8,7 @@ office.frame <- fpds %>%
            uniqueId, vendorId, congressId, NAICS.Code, 
            Action.Obligation, Number.of.Offers.Received, 
            Extent.Competed, Reason.Not.Awarded.To..Small.Business, 
-           catAward, naicsTwo, naicsThree, naicsFour, 
+           catAward, compCat, naicsTwo, naicsThree, naicsFour, 
            Award.or.IDV.Type, Type.of.Contract, Type.of.Set.Aside,
            Fair.Opportunity.Limited.Sources, Other.Than.Full.and.Open.Competition,
            Effective.Date, Completion.Date,
@@ -19,9 +19,8 @@ office.frame <- fpds %>%
            PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID, 
            Referenced..IDV.PIID, Modification.Number, 
            Principal.Place.of.Performance.State.Code,
-           Congressional.District.Place.of..Performance
+           Congressional.District.Place.of..Performance,histDisAdv
 ) 
-
 
 
 #get the number of offers by office
@@ -50,8 +49,7 @@ setaside <- office.frame %>%
                                 is.na(Type.of.Set.Aside), 1, 0)) %>%
     mutate(weightNoSetAside = indNoSetAside * Action.Obligation) %>%
     select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
-           indNoSetAside, weightNoSetAside,
-           Action.Obligation) %>%
+           indNoSetAside, weightNoSetAside, Action.Obligation) %>%
     group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
     summarize(pctNoSetAside = sum(indNoSetAside) / n(), 
               wtpctNoSetAside = sum(weightNoSetAside) / sum(Action.Obligation))
@@ -62,8 +60,7 @@ firmfixed <- office.frame %>%
   mutate(FirmFixedPrice = ifelse(grepl("FIRM FIXED PRICE", Type.of.Contract), 1, 0)) %>%
   mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
   select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
-         FirmFixedPrice, weightFirmFixed,
-         Action.Obligation) %>%
+         FirmFixedPrice, weightFirmFixed,Action.Obligation) %>%
   group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
   summarize(pctFirmFixed = sum(FirmFixedPrice) / n(), 
             wtpctFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
@@ -71,14 +68,25 @@ firmfixed <- office.frame %>%
 
 #get the percent from historically disadvantaged vendors
 
-historical.disadvantage <- office.frame %>%
+historical.disadv <- office.frame %>%
   mutate(weightHistDis = histDisAdv * Action.Obligation) %>%
   select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
-         histDisAdv, weightHistDis,
-         Action.Obligation) %>%
+         histDisAdv, weightHistDis, Action.Obligation) %>%
   group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
   summarize(pctHistDis = sum(histDisAdv) / n(), 
             wtpctHistDis = sum(weightHistDis) / sum(Action.Obligation))
+
+
+#the percent competed (i.e. competition rate)
+
+competed <- office.frame %>%
+  mutate(binCompeted = ifelse(!grepl("Not", compCat), 1, 0)) %>%
+  mutate(weightCompeted = binCompeted * Action.Obligation) %>%
+  select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,binCompeted, weightCompeted,
+         Action.Obligation) %>%
+  group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
+  summarize(pctCompete = sum(binCompeted) / n(), 
+            wtpctCompeted = sum(weightCompeted) / sum(Action.Obligation))
 #....
 #pct of actions that are firm fixed price (Type.of.Contract) include the weighted val
 #pct hDisadvantaged, check the git hub for list of variables recommend paste together
@@ -102,7 +110,8 @@ vendorConc <- office.frame %>%
 featureOffice <- offers %>%
     full_join(setaside, by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
   full_join(firmfixed,by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
-  full_join(historical.disadvantage,by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
+  full_join(historical.disadv,by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
+  full_join(competed,by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
   full_join(vendorConc,by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward'))
 
 write.csv(featureOffice, "Contracting_Office_Features_20160418.csv",na="",row.names = FALSE)
