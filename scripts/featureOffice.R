@@ -55,6 +55,13 @@ office.frame <- fpds %>%
            Is.Vendor.Business.Type...Economically.Disadvantaged.Women.Owned.Small.Business,
            Is.Vendor.Business.Type...Women.Owned.Small.Business) 
 
+# Add indicator of whether Vendor is member of historically disadvantaged group
+office.frame$HistDisAdv <- 0
+for (pop in hdis.list){
+  office.frame$HistDisAdv[office.frame[[pop]] == "YES"] <- 1
+}
+
+
 #get the number of offers by office
 offers <- office.frame %>%
     mutate(holdOffers = ifelse(Number.of.Offers.Received == 999, NA, 
@@ -101,16 +108,15 @@ firmfixed <- office.frame %>%
 
 
 #get the percent from historically disadvantaged vendors
-firmfixed <- office.frame %>%
-  #fpds[which(fpds[,c(hdis.list)] == "YES"),]  HisDisAdv
-  mutate(ifelse(grepl("FIRM FIXED PRICE", Type.of.Contract), 1, 0)) %>%
-  mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
+
+historical.disadvantage <- office.frame %>%
+  mutate(weightHistDis = HistDisAdv * Action.Obligation) %>%
   select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
-         FirmFixedPrice, weightFirmFixed,
+         HistDisAdv, weightHistDis,
          Action.Obligation) %>%
   group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
-  summarize(pctFirmFixed = sum(FirmFixedPrice) / n(), 
-            wtpctFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
+  summarize(pctHistDis = sum(HistDisAdv) / n(), 
+            wtpctHistDis = sum(weightHistDis) / sum(Action.Obligation))
 #....
 #pct of actions that are firm fixed price (Type.of.Contract) include the weighted val
 #pct hDisadvantaged, check the git hub for list of variables recommend paste together
