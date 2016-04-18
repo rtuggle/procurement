@@ -82,14 +82,11 @@ fpds <- fpds %>%    mutate(uniqueId = paste(PIID.Agency.ID, PIID, Referenced.IDV
                             Congressional.District.Place.of..Performance, sep='-'))
 
 # Add Keys needed in Tablea for Congressional Districts
-
 fpds <- fpds %>% mutate(CD.Place.Key=paste0("CD",Congressional.District.Place.of..Performance),
                         CD.Contractor.Key=paste0("CD",Congressional.District...Contractor))
 
 
 ## Add Contracting Region Groups
-
-
 fpds$Contracting.Group.ID <- NA
 fpds$Contracting.Group.ID[is.na(fpds$Contracting.Office.Region)] <- paste("NA -",fpds$Contracting.Agency.Name[is.na(fpds$Contracting.Office.Region)])
 fpds$Contracting.Group.ID[!is.na(fpds$Contracting.Office.Region)] <- paste0("R",fpds$Contracting.Office.Region[!is.na(fpds$Contracting.Office.Region)],
