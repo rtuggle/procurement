@@ -75,7 +75,7 @@ fpds <- fpds %>%
     grepl("NOT", Extent.Competed) | grepl("NON-C",Extent.Competed) |
       grepl("FOLLOW", Extent.Competed), "Not Competed",
     ifelse(!grepl("FAIR", Fair.Opportunity.Limited.Sources) &
-             Fair.Opportunity.Limited.Sources != "", "Not Competed", "Competed"))) %>%
+             ! is.na(Fair.Opportunity.Limited.Sources), "Not Competed", "Competed"))) %>%
   mutate(bidType = ifelse(
     Number.of.Offers.Received > 1, "Multiple Offers",
     ifelse(Number.of.Offers.Received == 1, "One Offer", Number.of.Offers.Received))) %>%
