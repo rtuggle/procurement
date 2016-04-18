@@ -4,6 +4,10 @@ require(dplyr)
 #define the directory location of the data files 
 datadir <- '../data/FPDS_20160414'
 
+# read in list of Historically Disadvantaged Categories
+hdis <- read.csv('data/listDisadvantaged.csv',stringsAsFactors = FALSE) %>% filter( Priviliged == "Yes")
+hdis.list <- trimws(hdis$Vars)
+
 #create function that takes the filename and adds it to the dataset
 #will use this function in do.call below
 read.helper <- function(infile,datadir,...){
@@ -100,6 +104,12 @@ fpds$Contracting.Group.ID[!is.na(fpds$Contracting.Office.Region)] <- paste0("R",
 ## Indicate whether contract was funded by GSA
 fpds <- fpds %>% mutate(GSA.Funded = ifelse(Funding.Department.ID == "4700","Yes","No"))
 
+
+## Add indicator of whether Vendor is member of historically disadvantaged group
+fpds$histDisAdv <- 0
+for (pop in hdis.list){
+  fpds$histDisAdv[fpds[[pop]] == "YES"] <- 1
+}
 
 #write the frame to a file
 write.csv(fpds,file="whole_data_with_keys_20160418_v1.csv",na="",row.names=F)
