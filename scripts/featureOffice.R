@@ -56,9 +56,9 @@ office.frame <- fpds %>%
            Is.Vendor.Business.Type...Women.Owned.Small.Business) 
 
 # Add indicator of whether Vendor is member of historically disadvantaged group
-office.frame$HistDisAdv <- 0
+office.frame$histDisAdv <- 0
 for (pop in hdis.list){
-  office.frame$HistDisAdv[office.frame[[pop]] == "YES"] <- 1
+  office.frame$histDisAdv[office.frame[[pop]] == "YES"] <- 1
 }
 
 
@@ -110,12 +110,12 @@ firmfixed <- office.frame %>%
 #get the percent from historically disadvantaged vendors
 
 historical.disadvantage <- office.frame %>%
-  mutate(weightHistDis = HistDisAdv * Action.Obligation) %>%
+  mutate(weightHistDis = histDisAdv * Action.Obligation) %>%
   select(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,
-         HistDisAdv, weightHistDis,
+         histDisAdv, weightHistDis,
          Action.Obligation) %>%
   group_by(Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward) %>%
-  summarize(pctHistDis = sum(HistDisAdv) / n(), 
+  summarize(pctHistDis = sum(histDisAdv) / n(), 
             wtpctHistDis = sum(weightHistDis) / sum(Action.Obligation))
 #....
 #pct of actions that are firm fixed price (Type.of.Contract) include the weighted val
@@ -138,7 +138,11 @@ vendorConc <- office.frame %>%
 
 #put them togeher
 featureOffice <- offers %>%
-    full_join(setaside, by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year',
-                               'catAward'))
+    full_join(setaside, by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
+  full_join(firmfixed,by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward')) %>%
+  full_join(historical.disadvantage,by = c('Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward'))
+
+write.csv(featureOffice, "Contracting_Office_Features_20160418.csv",na="",row.names = FALSE)
+  
 
 
