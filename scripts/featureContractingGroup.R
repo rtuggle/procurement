@@ -116,9 +116,10 @@ congressConc <- group.frame %>%
           desc(dollars)) %>%
   ungroup() %>% group_by(Contracting.Group.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>% 
   mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars,na.rm = T),
-         propCongress = cumsum(rank) / sum(rank)) %>%
-  filter(!is.na(propGroup)) %>%
-  summarize(congressConc = MESS::auc(propCongress,propGroup,type = 'spline')) 
+         propCongress = cumsum(rank) / sum(rank)) 
+#%>%
+#  filter(!is.na(propGroup) & !is.na(propCongress)) %>%
+#  summarize(congressConc = MESS::auc(propCongress,propGroup,type = 'spline')) 
 
 
 
@@ -131,7 +132,7 @@ featureGroup <- offers %>%
   full_join(vendorConc,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat')) %>%
   full_join(congressConc,by = c('Contracting.Group.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat'))
 
-write.csv(featureGroup, "Contracting_Group_Features_20160418_v3.csv",na="",row.names = FALSE)
+write.csv(featureGroup, "Contracting_Group_Features_20160420_v2.csv",na="",row.names = FALSE)
   
 
 

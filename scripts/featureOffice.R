@@ -1,5 +1,6 @@
 ## Load Packages
 require(MESS)
+require(dplyr)
 
 ##Build feature set for contracting offices
 
@@ -95,6 +96,7 @@ competed <- office.frame %>%
 #see below for example of start, need to add the other dimensions
 
 #concentration values for offices for vendor (vendorId)
+
 vendorConc <- office.frame %>%
     filter(!grepl("NA", vendorId)) %>%
     group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat, vendorId) %>%
@@ -102,10 +104,11 @@ vendorConc <- office.frame %>%
     arrange(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat,
             desc(dollars)) %>%
     ungroup() %>% group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>% 
-    mutate(rank = row_number(), propOffice = cumsum(dollars) / sum(dollars,na.rm = T),
-           propVendor = cumsum(rank) / sum(rank)) %>%
-    filter(!is.na(propOffice)) %>%
-    summarize(vendorConc = MESS::auc(propVendor,propOffice,type = 'spline')) 
+    mutate(rank = row_number(), propOffice = cumsum(dollars) / sum(dollars),
+           propVendor = cumsum(rank) / sum(rank))
+#%>%
+#    filter(!is.na(propOffice) & !is.na(propVendor)) %>% na.omit() %>% 
+#    summarize(vendorConc = MESS::auc(propVendor,propOffice,type = 'spline'))
 
 #concentration values for offices for geography (congressId)
 
@@ -118,7 +121,7 @@ congressConc <- office.frame %>%
   ungroup() %>% group_by(Contracting.Group.ID, Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>% 
   mutate(rank = row_number(), propOffice = cumsum(dollars) / sum(dollars,na.rm = T),
          propCongress = cumsum(rank) / sum(rank)) %>%
-  filter(!is.na(propOffice)) %>%
+  filter(!is.na(propOffice)) %>% filter(!is.na(propCongress)) %>%
   summarize(congressConc = MESS::auc(propCongress,propOffice,type = 'spline')) 
 
 
@@ -131,4 +134,4 @@ featureOffice <- offers %>%
   full_join(vendorConc,by = c('Contracting.Group.ID','Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat')) %>%
   full_join(congressConc,by = c('Contracting.Group.ID','Contracting.Office.ID', 'naicsTwo', 'Fiscal.Year','catAward','compCat'))
 
-write.csv(featureOffice, "Contracting_Office_Features_20160418_v2.csv",na="",row.names = FALSE)
+write.csv(featureOffice, "Contracting_Office_Features_20160420_v2.csv",na="",row.names = FALSE)
