@@ -31,17 +31,17 @@ offers <- office.frame %>%
            Action.Obligation) %>%
     group_by(Contracting.Group.ID, Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat, uniqueId) %>%
     summarize(numberOffers = max(holdOffers, na.rm = TRUE), 
-              amountDollars = sum(Action.Obligation),
-              numberAwards = n_distinct(uniqueId),
+              amountDollars = sum(Action.Obligation,na.rm = T),
+              numberAwards = n_distinct(uniqueId,na_rm = T),
               numberActions = n()) %>%
     ungroup() %>%
     mutate(weightedOffers = numberOffers * amountDollars) %>%
     group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward,compCat) %>%
-    summarize(sumActions = sum(numberActions), sumAwards = sum(numberAwards),
-              sumDollars = sum(amountDollars), sumOffers = sum(numberOffers), 
-              meanOffers = mean(numberOffers), medianOffers = median(numberOffers), 
-              maxOffers = max(numberOffers),
-              wtavgOffers = sum(weightedOffers) / sum(amountDollars))
+    summarize(sumActions = sum(numberActions,na.rm = T), sumAwards = sum(numberAwards,na.rm = T),
+              sumDollars = sum(amountDollars,na.rm = T), sumOffers = sum(numberOffers,na.rm = T), 
+              meanOffers = mean(numberOffers,na.rm = T), medianOffers = median(numberOffers,na.rm = T), 
+              maxOffers = max(numberOffers,na.rm = T),
+              wtavgOffers = sum(weightedOffers,na.rm = T) / sum(amountDollars,na.rm = T))
 
 #get the percent with no set asides
 setaside <- office.frame %>%
@@ -51,8 +51,8 @@ setaside <- office.frame %>%
     select(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat,
            indNoSetAside, weightNoSetAside, Action.Obligation) %>%
     group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
-    summarize(propNoSetAside = sum(indNoSetAside) / n(), 
-              wtpropNoSetAside = sum(weightNoSetAside) / sum(Action.Obligation))
+    summarize(propNoSetAside = sum(indNoSetAside,na.rm = T) / n(), 
+              wtpropNoSetAside = sum(weightNoSetAside,na.rm = T) / sum(Action.Obligation,na.rm = T))
 
 
 #get the percent with firm fixed price 
@@ -62,8 +62,8 @@ firmfixed <- office.frame %>%
   select(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat,
          FirmFixedPrice, weightFirmFixed,Action.Obligation) %>%
   group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
-  summarize(propFirmFixed = sum(FirmFixedPrice) / n(), 
-            wtpropFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
+  summarize(propFirmFixed = sum(FirmFixedPrice,na.rm = T) / n(), 
+            wtpropFirmFixed = sum(weightFirmFixed,na.rm = T) / sum(Action.Obligation,na.rm = T))
 
 
 #get the percent from historically disadvantaged vendors
@@ -73,8 +73,8 @@ historical.disadv <- office.frame %>%
   select(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat,
          histDisAdv, weightHistDis, Action.Obligation) %>%
   group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
-  summarize(propHistDis = sum(histDisAdv) / n(), 
-            wtpropHistDis = sum(weightHistDis) / sum(Action.Obligation))
+  summarize(propHistDis = sum(histDisAdv,na.rm = T) / n(), 
+            wtpropHistDis = sum(weightHistDis,na.rm = T) / sum(Action.Obligation,na.rm = T))
 
 
 #the percent competed (i.e. competition rate)
@@ -85,8 +85,8 @@ competed <- office.frame %>%
   select(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat,binCompeted, weightCompeted,
          Action.Obligation) %>%
   group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>%
-  summarize(propCompete = sum(binCompeted) / n(), 
-            wtpropCompeted = sum(weightCompeted) / sum(Action.Obligation))
+  summarize(propCompete = sum(binCompeted,na.rm = T) / n(), 
+            wtpropCompeted = sum(weightCompeted,na.rm = T) / sum(Action.Obligation,na.rm = T))
 #....
 #prop of actions that are firm fixed price (Type.of.Contract) include the weighted val
 #prop hDisadvantaged, check the git hub for list of variables recommend paste together
@@ -98,11 +98,11 @@ competed <- office.frame %>%
 vendorConc <- office.frame %>%
     filter(!grepl("NA", vendorId)) %>%
     group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat, vendorId) %>%
-    summarize(dollars = sum(Action.Obligation)) %>%
+    summarize(dollars = sum(Action.Obligation,na.rm = T)) %>%
     arrange(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat,
             desc(dollars)) %>%
     ungroup() %>% group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>% 
-    mutate(rank = row_number(), propOffice = cumsum(dollars) / sum(dollars),
+    mutate(rank = row_number(), propOffice = cumsum(dollars) / sum(dollars,na.rm = T),
            propVendor = cumsum(rank) / sum(rank)) %>%
     filter(!is.na(propOffice)) %>%
     summarize(vendorConc = MESS::auc(propVendor,propOffice,type = 'spline')) 
@@ -112,11 +112,11 @@ vendorConc <- office.frame %>%
 congressConc <- office.frame %>%
   filter(!grepl("NA", congressId)) %>%
   group_by(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat, congressId) %>%
-  summarize(dollars = sum(Action.Obligation)) %>%
+  summarize(dollars = sum(Action.Obligation,na.rm = T)) %>%
   arrange(Contracting.Group.ID,Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat,
           desc(dollars)) %>%
   ungroup() %>% group_by(Contracting.Group.ID, Contracting.Office.ID, naicsTwo, Fiscal.Year, catAward, compCat) %>% 
-  mutate(rank = row_number(), propOffice = cumsum(dollars) / sum(dollars),
+  mutate(rank = row_number(), propOffice = cumsum(dollars) / sum(dollars,na.rm = T),
          propCongress = cumsum(rank) / sum(rank)) %>%
   filter(!is.na(propOffice)) %>%
   summarize(congressConc = MESS::auc(propCongress,propOffice,type = 'spline')) 

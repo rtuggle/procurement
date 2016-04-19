@@ -33,17 +33,17 @@ make.feature.table <- function(data){
            Action.Obligation) %>%
     group_by(Contracting.Group.ID, uniqueId) %>%
     summarize(numberOffers = max(holdOffers, na.rm = TRUE), 
-              amountDollars = sum(Action.Obligation),
-              numberAwards = n_distinct(uniqueId),
+              amountDollars = sum(Action.Obligation,na.rm = T),
+              numberAwards = n_distinct(uniqueId,na_rm = T),
               numberActions = n()) %>%
     ungroup() %>%
     mutate(weightedOffers = numberOffers * amountDollars) %>%
     group_by(Contracting.Group.ID) %>%
-    summarize(sumActions = sum(numberActions), sumAwards = sum(numberAwards),
-              sumDollars = sum(amountDollars), sumOffers = sum(numberOffers), 
-              meanOffers = mean(numberOffers), medianOffers = median(numberOffers), 
-              maxOffers = max(numberOffers),
-              wtavgOffers = sum(weightedOffers) / sum(amountDollars))
+    summarize(sumActions = sum(numberActions,na.rm = T), sumAwards = sum(numberAwards,na.rm = T),
+              sumDollars = sum(amountDollars,na.rm = T), sumOffers = sum(numberOffers,na.rm = T), 
+              meanOffers = mean(numberOffers,na.rm = T), medianOffers = median(numberOffers,na.rm = T), 
+              maxOffers = max(numberOffers,na.rm = T),
+              wtavgOffers = sum(weightedOffers,na.rm = T) / sum(amountDollars,na.rm = T))
   
   #get the percent with no set asides
   setaside.compare <- data %>%
@@ -53,8 +53,8 @@ make.feature.table <- function(data){
     select(Contracting.Group.ID, indNoSetAside, weightNoSetAside,
            Action.Obligation) %>%
     group_by(Contracting.Group.ID) %>%
-    summarize(propNoSetAside = sum(indNoSetAside) / n(), 
-              wtpropNoSetAside = sum(weightNoSetAside) / sum(Action.Obligation))
+    summarize(propNoSetAside = sum(indNoSetAside,na.rm = T) / n(), 
+              wtpropNoSetAside = sum(weightNoSetAside,na.rm = T) / sum(Action.Obligation,na.rm = T))
   
   
   #get the percent with firm fixed price 
@@ -63,8 +63,8 @@ make.feature.table <- function(data){
     mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
     select(Contracting.Group.ID, FirmFixedPrice, weightFirmFixed, Action.Obligation) %>%
     group_by(Contracting.Group.ID) %>%
-    summarize(propFirmFixed = sum(FirmFixedPrice) / n(), 
-              wtpropFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
+    summarize(propFirmFixed = sum(FirmFixedPrice,na.rm = T) / n(), 
+              wtpropFirmFixed = sum(weightFirmFixed,na.rm = T) / sum(Action.Obligation,na.rm = T))
   
   
   #get the percent from historically disadvantaged vendors
@@ -75,7 +75,7 @@ make.feature.table <- function(data){
            histDisAdv, weightHistDis, Action.Obligation) %>%
     group_by(Contracting.Group.ID) %>%
     summarize(propHistDis = sum(histDisAdv) / n(), 
-              wtpropHistDis = sum(weightHistDis) / sum(Action.Obligation))
+              wtpropHistDis = sum(weightHistDis,na.rm = T) / sum(Action.Obligation,na.rm = T))
   
   #the percent competed (i.e. competition rate)
   
@@ -85,8 +85,8 @@ make.feature.table <- function(data){
     select(Contracting.Group.ID,  binCompeted, weightCompeted,
            Action.Obligation) %>%
     group_by(Contracting.Group.ID) %>%
-    summarize(propCompete = sum(binCompeted) / n(), 
-              wtpropCompeted = sum(weightCompeted) / sum(Action.Obligation))
+    summarize(propCompete = sum(binCompeted,na.rm = T) / n(), 
+              wtpropCompeted = sum(weightCompeted,na.rm = T) / sum(Action.Obligation,na.rm = T))
   #....
   #prop of actions that are firm fixed price (Type.of.Contract) include the weighted val
   #prop hDisadvantaged, check the git hub for list of variables recommend paste together
@@ -97,11 +97,11 @@ make.feature.table <- function(data){
   vendorConc.compare <- data %>%
     filter(!grepl("NA", vendorId)) %>%
     group_by(Contracting.Group.ID,  vendorId) %>%
-    summarize(dollars = sum(Action.Obligation)) %>%
+    summarize(dollars = sum(Action.Obligation,na.rm = T)) %>%
     arrange(Contracting.Group.ID,
             desc(dollars)) %>%
     ungroup() %>% group_by(Contracting.Group.ID) %>% 
-    mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
+    mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars,na.rm = T),
            propVendor = cumsum(rank) / sum(rank)) %>%
     filter(!is.na(propGroup)) %>%
     summarize(vendorConc = MESS::auc(propVendor,propGroup,type = 'spline')) 
@@ -111,11 +111,11 @@ make.feature.table <- function(data){
   congressConc.compare <- data %>%
     filter(!grepl("NA", congressId)) %>%
     group_by(Contracting.Group.ID,  congressId) %>%
-    summarize(dollars = sum(Action.Obligation)) %>%
+    summarize(dollars = sum(Action.Obligation,na.rm = T)) %>%
     arrange(Contracting.Group.ID, 
             desc(dollars)) %>%
     ungroup() %>% group_by(Contracting.Group.ID) %>% 
-    mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
+    mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars,na.rm = T),
            propCongress = cumsum(rank) / sum(rank)) %>%
     filter(!is.na(propGroup)) %>%
     summarize(congressConc = MESS::auc(propCongress,propGroup,type = 'spline')) 
@@ -142,7 +142,6 @@ make.feature.table <- function(data){
 make.graphable <- function(data, scaled=T){
   ## Transform data into numeric matrix for clustering and graphing
   data.out <- data
-  data.out[is.na(data.out)] <- -1
   rnames <- data.out$Contracting.Group.ID
   data.out <- data.out %>% select(-Contracting.Group.ID)
   data.out <- as.matrix(data.out)
