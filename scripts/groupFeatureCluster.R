@@ -2,7 +2,7 @@ require(dplyr)
 require(ggplot2)
 require(pvclust)
 require(MESS)
-require
+
 
 ## Which features will be used for distance measurement
 
@@ -21,125 +21,176 @@ group.frame <- fpds %>%
          Congressional.District.Place.of..Performance, histDisAdv
   ) 
 
+make.feature.table <- function(data){
+  ## function to create a list of features by contracting group and combine them into a table
+  
+  
+  #get the number of offers by group
+  offers.compare <- data %>%
+    mutate(holdOffers = ifelse(Number.of.Offers.Received == 999, NA, 
+                               Number.of.Offers.Received)) %>%
+    select(Contracting.Group.ID, uniqueId, holdOffers, 
+           Action.Obligation) %>%
+    group_by(Contracting.Group.ID, uniqueId) %>%
+    summarize(numberOffers = max(holdOffers, na.rm = TRUE), 
+              amountDollars = sum(Action.Obligation),
+              numberAwards = n_distinct(uniqueId),
+              numberActions = n()) %>%
+    ungroup() %>%
+    mutate(weightedOffers = numberOffers * amountDollars) %>%
+    group_by(Contracting.Group.ID) %>%
+    summarize(sumActions = sum(numberActions), sumAwards = sum(numberAwards),
+              sumDollars = sum(amountDollars), sumOffers = sum(numberOffers), 
+              meanOffers = mean(numberOffers), medianOffers = median(numberOffers), 
+              maxOffers = max(numberOffers),
+              wtavgOffers = sum(weightedOffers) / sum(amountDollars))
+  
+  #get the percent with no set asides
+  setaside.compare <- data %>%
+    mutate(indNoSetAside = ifelse(grepl("NO SET", Type.of.Set.Aside) | 
+                                    is.na(Type.of.Set.Aside), 1, 0)) %>%
+    mutate(weightNoSetAside = indNoSetAside * Action.Obligation) %>%
+    select(Contracting.Group.ID, indNoSetAside, weightNoSetAside,
+           Action.Obligation) %>%
+    group_by(Contracting.Group.ID) %>%
+    summarize(propNoSetAside = sum(indNoSetAside) / n(), 
+              wtpropNoSetAside = sum(weightNoSetAside) / sum(Action.Obligation))
+  
+  
+  #get the percent with firm fixed price 
+  firmfixed.compare <- data %>%
+    mutate(FirmFixedPrice = ifelse(grepl("FIRM FIXED PRICE", Type.of.Contract), 1, 0)) %>%
+    mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
+    select(Contracting.Group.ID, FirmFixedPrice, weightFirmFixed, Action.Obligation) %>%
+    group_by(Contracting.Group.ID) %>%
+    summarize(propFirmFixed = sum(FirmFixedPrice) / n(), 
+              wtpropFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
+  
+  
+  #get the percent from historically disadvantaged vendors
+  
+  historical.disadv.compare <- data %>%
+    mutate(weightHistDis = histDisAdv * Action.Obligation) %>%
+    select(Contracting.Group.ID, 
+           histDisAdv, weightHistDis, Action.Obligation) %>%
+    group_by(Contracting.Group.ID) %>%
+    summarize(propHistDis = sum(histDisAdv) / n(), 
+              wtpropHistDis = sum(weightHistDis) / sum(Action.Obligation))
+  
+  #the percent competed (i.e. competition rate)
+  
+  competed.compare <- data %>%
+    mutate(binCompeted = ifelse(!grepl("Not", compCat), 1, 0)) %>%
+    mutate(weightCompeted = binCompeted * Action.Obligation) %>%
+    select(Contracting.Group.ID,  binCompeted, weightCompeted,
+           Action.Obligation) %>%
+    group_by(Contracting.Group.ID) %>%
+    summarize(propCompete = sum(binCompeted) / n(), 
+              wtpropCompeted = sum(weightCompeted) / sum(Action.Obligation))
+  #....
+  #prop of actions that are firm fixed price (Type.of.Contract) include the weighted val
+  #prop hDisadvantaged, check the git hub for list of variables recommend paste together
+  #and grepl for "YES" (double check), include the weighted val
+  #concentration values for offices for vendor (vendorId), geography (congressId)
+  #see below for example of start, need to add the other dimensions
+  
+  vendorConc.compare <- data %>%
+    filter(!grepl("NA", vendorId)) %>%
+    group_by(Contracting.Group.ID,  vendorId) %>%
+    summarize(dollars = sum(Action.Obligation)) %>%
+    arrange(Contracting.Group.ID,
+            desc(dollars)) %>%
+    ungroup() %>% group_by(Contracting.Group.ID) %>% 
+    mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
+           propVendor = cumsum(rank) / sum(rank)) %>%
+    filter(!is.na(propGroup)) %>%
+    summarize(vendorConc = MESS::auc(propVendor,propGroup,type = 'spline')) 
+  
+  #concentration values for offices for geography (congressId)
+  
+  congressConc.compare <- data %>%
+    filter(!grepl("NA", congressId)) %>%
+    group_by(Contracting.Group.ID,  congressId) %>%
+    summarize(dollars = sum(Action.Obligation)) %>%
+    arrange(Contracting.Group.ID, 
+            desc(dollars)) %>%
+    ungroup() %>% group_by(Contracting.Group.ID) %>% 
+    mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
+           propCongress = cumsum(rank) / sum(rank)) %>%
+    filter(!is.na(propGroup)) %>%
+    summarize(congressConc = MESS::auc(propCongress,propGroup,type = 'spline')) 
+  
+  
+  
+  #put them together
+  featureGroup.compare <- offers.compare %>%
+    full_join(setaside.compare, by = c('Contracting.Group.ID')) %>%
+    full_join(firmfixed.compare,by = c('Contracting.Group.ID')) %>%
+    full_join(historical.disadv.compare,by = c('Contracting.Group.ID')) %>%
+    full_join(competed.compare,by = c('Contracting.Group.ID')) %>%
+    full_join(vendorConc.compare,by = c('Contracting.Group.ID'))  %>%
+    full_join(congressConc.compare,by = c('Contracting.Group.ID'))
+  
+  group.features <- featureGroup.compare %>% select(Contracting.Group.ID,
+                                                    propNoSetAside, propCompete,
+                                                    maxOffers, propHistDis,congressConc)
+  
+  return(group.features)
+}
 
-#get the number of offers by group
-offers.compare <- group.frame %>%
-  mutate(holdOffers = ifelse(Number.of.Offers.Received == 999, NA, 
-                             Number.of.Offers.Received)) %>%
-  select(Contracting.Group.ID, catAward, uniqueId, holdOffers, 
-         Action.Obligation) %>%
-  group_by(Contracting.Group.ID, catAward, uniqueId) %>%
-  summarize(numberOffers = max(holdOffers, na.rm = TRUE), 
-            amountDollars = sum(Action.Obligation),
-            numberAwards = n_distinct(uniqueId),
-            numberActions = n()) %>%
-  ungroup() %>%
-  mutate(weightedOffers = numberOffers * amountDollars) %>%
-  group_by(Contracting.Group.ID, catAward) %>%
-  summarize(sumActions = sum(numberActions), sumAwards = sum(numberAwards),
-            sumDollars = sum(amountDollars), sumOffers = sum(numberOffers), 
-            meanOffers = mean(numberOffers), medianOffers = median(numberOffers), 
-            maxOffers = max(numberOffers),
-            wtavgOffers = sum(weightedOffers) / sum(amountDollars))
 
-#get the percent with no set asides
-setaside.compare <- group.frame %>%
-  mutate(indNoSetAside = ifelse(grepl("NO SET", Type.of.Set.Aside) | 
-                                  is.na(Type.of.Set.Aside), 1, 0)) %>%
-  mutate(weightNoSetAside = indNoSetAside * Action.Obligation) %>%
-  select(Contracting.Group.ID, catAward, indNoSetAside, weightNoSetAside,
-         Action.Obligation) %>%
-  group_by(Contracting.Group.ID, catAward) %>%
-  summarize(propNoSetAside = sum(indNoSetAside) / n(), 
-            wtpropNoSetAside = sum(weightNoSetAside) / sum(Action.Obligation))
+make.graphable <- function(data, scaled=T){
+  ## Transform data into numeric matrix for clustering and graphing
+  data.out <- data
+  data.out[is.na(data.out)] <- -1
+  rnames <- data.out$Contracting.Group.ID
+  data.out <- data.out %>% select(-Contracting.Group.ID)
+  data.out <- as.matrix(data.out)
+  rownames(data.out) <- rnames
+
+  if (scaled){
+    data.out <- scale(data.out) # standardize variables 
+  }
+  return(data.out)
+}
 
 
-#get the percent with firm fixed price 
-firmfixed.compare <- group.frame %>%
-  mutate(FirmFixedPrice = ifelse(grepl("FIRM FIXED PRICE", Type.of.Contract), 1, 0)) %>%
-  mutate(weightFirmFixed = FirmFixedPrice * Action.Obligation) %>%
-  select(Contracting.Group.ID, catAward, FirmFixedPrice, weightFirmFixed, Action.Obligation) %>%
-  group_by(Contracting.Group.ID, catAward) %>%
-  summarize(propFirmFixed = sum(FirmFixedPrice) / n(), 
-            wtpropFirmFixed = sum(weightFirmFixed) / sum(Action.Obligation))
+kmeans.cluster.count <- function(data){
 
-
-#get the percent from historically disadvantaged vendors
-
-historical.disadv.compare <- group.frame %>%
-  mutate(weightHistDis = histDisAdv * Action.Obligation) %>%
-  select(Contracting.Group.ID, catAward, 
-         histDisAdv, weightHistDis, Action.Obligation) %>%
-  group_by(Contracting.Group.ID, catAward) %>%
-  summarize(propHistDis = sum(histDisAdv) / n(), 
-            wtpropHistDis = sum(weightHistDis) / sum(Action.Obligation))
-
-#the percent competed (i.e. competition rate)
-
-competed.compare <- group.frame %>%
-  mutate(binCompeted = ifelse(!grepl("Not", compCat), 1, 0)) %>%
-  mutate(weightCompeted = binCompeted * Action.Obligation) %>%
-  select(Contracting.Group.ID, catAward,  binCompeted, weightCompeted,
-         Action.Obligation) %>%
-  group_by(Contracting.Group.ID, catAward) %>%
-  summarize(propCompete = sum(binCompeted) / n(), 
-            wtpropCompeted = sum(weightCompeted) / sum(Action.Obligation))
-#....
-#prop of actions that are firm fixed price (Type.of.Contract) include the weighted val
-#prop hDisadvantaged, check the git hub for list of variables recommend paste together
-#and grepl for "YES" (double check), include the weighted val
-#concentration values for offices for vendor (vendorId), geography (congressId)
-#see below for example of start, need to add the other dimensions
-
-vendorConc.compare <- group.frame %>%
-  filter(!grepl("NA", vendorId)) %>%
-  group_by(Contracting.Group.ID, catAward, vendorId) %>%
-  summarize(dollars = sum(Action.Obligation)) %>%
-  arrange(Contracting.Group.ID, catAward,
-          desc(dollars)) %>%
-  ungroup() %>% group_by(Contracting.Group.ID, catAward) %>% 
-  mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
-         propVendor = cumsum(rank) / sum(rank)) %>%
-  filter(!is.na(propGroup)) %>%
-  summarize(vendorConc = MESS::auc(propVendor,propGroup,type = 'spline')) 
-
-#concentration values for offices for geography (congressId)
-
-congressConc.compare <- group.frame %>%
-  filter(!grepl("NA", congressId)) %>%
-  group_by(Contracting.Group.ID, catAward,  congressId) %>%
-  summarize(dollars = sum(Action.Obligation)) %>%
-  arrange(Contracting.Group.ID, catAward,
-          desc(dollars)) %>%
-  ungroup() %>% group_by(Contracting.Group.ID, catAward) %>% 
-  mutate(rank = row_number(), propGroup = cumsum(dollars) / sum(dollars),
-         propCongress = cumsum(rank) / sum(rank)) %>%
-  filter(!is.na(propGroup)) %>%
-  summarize(congressConc = MESS::auc(propCongress,propGroup,type = 'spline')) 
+  wss <- (nrow(data)-1)*sum(apply(data,2,var))
+  for (i in 2:15) wss[i] <- sum(kmeans(data,
+                                       centers=i)$withinss)
+  plot(1:15, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")
+}
 
 
 
-#put them together
-featureGroup.compare <- offers.compare %>%
-  full_join(setaside.compare, by = c('Contracting.Group.ID','catAward')) %>%
-  full_join(firmfixed.compare,by = c('Contracting.Group.ID','catAward')) %>%
-  full_join(historical.disadv.compare,by = c('Contracting.Group.ID','catAward')) %>%
-  full_join(competed.compare,by = c('Contracting.Group.ID','catAward')) %>%
-  full_join(vendorConc.compare,by = c('Contracting.Group.ID','catAward'))  %>%
-  full_join(congressConc.compare,by = c('Contracting.Group.ID','catAward'))
 
-group.features <- featureGroup.compare %>% select(Contracting.Group.ID,catAward,
-                                                   propNoSetAside,propCompete, maxOffers) %>%
-filter(catAward == "Award")
 
-rnames <-group.features$Contracting.Group.ID
-group.features <- group.features %>% select(- Contracting.Group.ID)
-group.features <- as.matrix(group.features)
-rownames(group.features) <- rnames
+## make feature table for both awards and vehicles 
+comparison.both <- make.feature.table(group.frame)
+both.graphable <- make.graphable(comparison.both,scaled=F)
+both.graphable.scaled <- make.graphable(comparison.both,scaled=T)
 
-group.features <- na.omit(group.features) # listwise deletion of missing
-mydata <- as.numeric(group.features[,-(1:2)])
-mydata.scaled <- scale(mydata) # standardize variables 
+
+## count clusters
+kmeans.cluster.count(na.omit(both.graphable))
+
+## make feature table for awards only
+comparison.awards <- filter(group.frame, catAward == "Award") %>% make.feature.table(.)
+awards.graphable <- make.graphable(comparison.awards,scaled=F)
+awards.graphable.scaled <- make.graphable(comparison.awards,scaled=T)
+
+## count clusters
+kmeans.cluster.count(awards.graphable)
+
+
+
+## calculate distances
+d <- dist(both.graphable.scaled, method = "euclidean") # distance matrix
+fit <- hclust(d, method="ward.D")
+plot(fit)
 
 ## Base R implementation
 
