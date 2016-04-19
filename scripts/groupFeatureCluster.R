@@ -132,15 +132,18 @@ group.features <- featureGroup.compare %>% select(Contracting.Group.ID,catAward,
                                                    propNoSetAside,propCompete, maxOffers) %>%
 filter(catAward == "Award")
 
-rownames(group.features) <- group.features$Contracting.Group.ID
+rnames <-group.features$Contracting.Group.ID
 group.features <- group.features %>% select(- Contracting.Group.ID)
+group.features <- as.matrix(group.features)
+rownames(group.features) <- rnames
+
 group.features <- na.omit(group.features) # listwise deletion of missing
-mydata <- group.features[,-(1:2)]
+mydata <- as.numeric(group.features[,-(1:2)])
 mydata.scaled <- scale(mydata) # standardize variables 
 
 ## Base R implementation
 
-d <- dist(as.numeric(group.features[,-(2:3)]), method = "euclidean") # distance matrix
+d <- dist(mydata.scaled, method = "euclidean",) # distance matrix
 fit <- hclust(d, method="ward.D")
 plot(fit) # display dendogram
 groups <- cutree(fit, k=5) # cut tree into 5 clusters
@@ -150,19 +153,31 @@ rect.hclust(fit, k=5, border="red")
 
 # Ward Hierarchical Clustering with Bootstrapped p values  -- pvclust packages
 
-fit <- pvclust::pvclust(as.matrix(mydata.scaled), method.hclust="ward.D",
+fit <- pvclust::pvclust(mydata.scaled, method.hclust="ward.D",
                method.dist ="euclidean")
 plot(fit) # dendogram with p values
 # add rectangles around groups highly supported by the data
 pvrect(fit, alpha=.95) 
 
 ## Twins Agglomerative Nesting (Agnes) --  cluster
-thinger <- cluster::agnes(mydata.scaled)
+thinger <- cluster::agnes(t(mydata.scaled))
 plot(thinger)
+
+thinger <- cluster::diana(mydata.scaled,)
+plot(thinger)
+
 
 thinger <- cluster::clara(mydata.scaled,k=4)
 
 thinger <- cluster::clara(mydata.scaled,k=8)
+
+
+thinger <- cluster::fanny(mydata.scaled,k=4)
+plot(thinger)
+
+
+thinger <- cluster::pam(mydata.scaled,k=4)
+plot(thinger)
 
 ### KMEANS
 
@@ -182,9 +197,9 @@ plot(1:15, wss, type="b", xlab="Number of Clusters",
      ylab="Within groups sum of squares")
 
 # K-Means Cluster Analysis
-fit <- kmeans(mydata, 4) # 5 cluster solution
+fit <- kmeans(mydata.scaled, 4) # 5 cluster solution
 # get cluster means
-aggregate(mydata,by=list(fit$cluster),FUN=mean)
+aggregate(mydata.scaled,by=list(fit$cluster),FUN=mean)
 # append cluster assignment
-mydata <- data.frame(mydata, fit$cluster) 
-
+mydata.out <- data.frame(mydata.scaled, fit$cluster) 
+plot(mydata.out)
