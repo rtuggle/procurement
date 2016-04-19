@@ -1,4 +1,5 @@
 require(dplyr)
+require(lubridate)
 
 ##script to create data frame of fpds data
 #define the directory location of the data files 
@@ -13,7 +14,7 @@ hdis.list <- trimws(hdis$Vars)
 read.helper <- function(infile,datadir,...){
     ## Function to read in csv and strip date information from file name
     temp <- read.csv(paste(datadir,infile,sep="/"), stringsAsFactors = F,na.strings = c("NA",""),...)
-    temp$period <- gsub("FPDS","",infile) %>% gsub("\\.csv","",.)
+    # temp$period <- gsub("FPDS","",infile) %>% gsub("\\.csv","",.)
     return(temp)
 }
 
@@ -25,10 +26,10 @@ files <- list.files(datadir,pattern = "FULLFPDS[0-9_]*.csv")
 fpds <- do.call(rbind, lapply(files, function(x) read.helper(x,datadir)))
 
 #strip the dollars from money columns
-fpds$Action.Obligation <- gsub("[^0-9.]","",fpds$Action.Obligation) %>% 
+fpds$Action.Obligation <- gsub("[^0-9.-]","",fpds$Action.Obligation) %>% 
     as.numeric()
-fpds$Base.and.Exercised.Options.Value <- gsub("[^0-9.]","",fpds$Base.and.Exercised.Options.Value) %>% as.numeric()
-fpds$Base.and.All.Options.Value <- gsub("[^0-9.]","",fpds$Base.and.All.Options.Value) %>% as.numeric()
+fpds$Base.and.Exercised.Options.Value <- gsub("[^0-9.-]","",fpds$Base.and.Exercised.Options.Value) %>% as.numeric()
+fpds$Base.and.All.Options.Value <- gsub("[^0-9.-]","",fpds$Base.and.All.Options.Value) %>% as.numeric()
 
 #convert dates to date objects
 fpds$Last.Modified.Date <- as.Date(fpds$Last.Modified.Date,"%m/%d/%Y")
@@ -113,11 +114,11 @@ for (pop in hdis.list){
 }
 
 #write the frame to a file
-write.csv(fpds,file="whole_data_with_keys_20160420_v3.csv",na="",row.names=F)
+write.csv(fpds,file="whole_data_with_keys_20160420_v4.csv",na="",row.names=F)
 
 ## Remove observations from FY2016
 
 fpds <- fpds %>% filter(Fiscal.Year != 2016)
 
 #write the frame to a file
-write.csv(fpds,file="noFY2016_wholedata_with_keys_20160420.csv",na="",row.names=F)
+write.csv(fpds,file="noFY2016_wholedata_with_keys_20160420_v2.csv",na="",row.names=F)
