@@ -2,7 +2,7 @@ require(dplyr)
 
 ##script to create data frame of fpds data
 #define the directory location of the data files 
-datadir <- '../data/FPDS_20160414'
+datadir <- '../data/FPDS_20160420'
 
 # read in list of Historically Disadvantaged Categories
 hdis <- read.csv('data/listDisadvantaged.csv',stringsAsFactors = FALSE) %>% filter( Priviliged == "Yes")
@@ -18,7 +18,8 @@ read.helper <- function(infile,datadir,...){
 }
 
 #get a list of files in the data directory
-files <- list.files(datadir,pattern = "FPDSFULL[0-9_]*.csv")
+#files <- list.files(datadir,pattern = "FPDSFULL[0-9_]*.csv")
+files <- list.files(datadir,pattern = "FULLFPDS[0-9_]*.csv")
 
 #rowbind all the files together, with the added filename in the dataset
 fpds <- do.call(rbind, lapply(files, function(x) read.helper(x,datadir)))
@@ -112,4 +113,10 @@ for (pop in hdis.list){
 }
 
 #write the frame to a file
-write.csv(fpds,file="whole_data_with_keys_20160418_v1.csv",na="",row.names=F)
+write.csv(fpds,file="whole_data_with_keys_20160420_v3.csv",na="",row.names=F)
+
+## Remove observations from FY2016
+fpds <- fpds %>% filter(Fiscal.Year == 2016)
+
+#write the frame to a file
+write.csv(fpds,file="noFY2016_wholedata_with_keys_20160420.csv",na="",row.names=F)
