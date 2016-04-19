@@ -116,6 +116,7 @@ for (pop in hdis.list){
 write.csv(fpds,file="whole_data_with_keys_20160420_v3.csv",na="",row.names=F)
 
 ## Remove observations from FY2016
+
 fpds <- fpds %>% filter(Fiscal.Year != 2016)
 
 #write the frame to a file
