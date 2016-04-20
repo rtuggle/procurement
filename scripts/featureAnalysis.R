@@ -137,17 +137,27 @@ panel.cor <- function(x, y, digits=2, prefix="", cex.cor, ...)
     txt <- format(c(r, 0.123456789), digits=digits)[1]
     txt <- paste(prefix, txt, sep="")
     if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
-    text(0.5, 0.5, txt, cex = cex.cor * r)
+    text(0.5, 0.5, txt, cex = (cex.cor * r)+1)
 }
 
+## Write out scatter plot matrix to png
+
+png("fig/5_scatterMetrics.png",height=1000,width=1400)
 pairs(~sumAwards + sumDollars + competedRate + offerRate + setAsideRate, 
       data=na.omit(chart.feature), 
       lower.panel = panel.smooth,
       upper.panel = panel.cor,
-      pch = 20, main='Competition Metrics Matrix, Comparison of Regional Contracting Agencies')
+      cex.labels=2,
+      pch = 20, main='Competition Metrics Matrix\n Comparison of Regional Contracting Agencies') +
+  theme(axis.text=element_text(size=20),axis.title=element_text(size=13,face="bold"),
+        title=element_text(size=14,face="bold"))
+
+dev.off()
 
 
-require
+
+
+require()
 plotmatrix(with(chart, data.frame(sumAwards, sumDollars, 
                                   competedRate, offerRate, setAsideRate)))
 
