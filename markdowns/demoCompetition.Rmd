@@ -1,0 +1,95 @@
+---
+title: "Procurement Competition"
+date: "April 18, 2016"
+output: html_document
+---
+###Background Material for Live Demonstration Exercise with Office of Governmentwide Policy
+
+##Why is competition important? 
+In theory, competition promotes efficiency by encouraging vendors to find new ways to deliver more value at lower cost. If this is true, then more competition in government contracting should generally lead to procurements that deliver more value and/or lower cost. 
+
+A simple approach to analyzing the relationship between competition and value and/or cost is to compare the costs of procurements with and without competition. Using the General Services Administration (GSA) Office of Government Policy (OGP) competition categories we compared whether the cost of procurements contracted by GSA in fiscal years 2014 - 2015 were higher in any one category than another, controlling for the type of product or service procured (and differentiating between procurements funded by GSA and those funded by other agencies). This analysis shows little discernible difference between the competition categories.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8} 
+#rmarkdown::render('markdowns/demoCompetition.Rmd')
+require(dplyr)
+require(ggplot2)
+
+prep <- fpds %>%
+    filter(catAward == 'Award') %>%
+    select(uniqueId, naicsThree, compCat, GSA.Funded,
+           Action.Obligation, Effective.Date, Completion.Date) %>%
+    group_by(naicsThree, compCat, GSA.Funded, uniqueId) %>%
+    summarize(sumDollars = sum(Action.Obligation), minEffective = min(Effective.Date),
+              maxComplete = max(Completion.Date)) %>%
+    mutate(weeks = as.numeric(difftime(maxComplete, minEffective, units="weeks"))) %>%
+    filter(weeks >= 1 & sumDollars != 0) %>%
+    mutate(rateDollarsWeek = sumDollars / weeks)
+
+quant <- prep %>%
+    group_by(naicsThree) %>%
+    summarize(qnt25 = quantile(rateDollarsWeek, na.rm = TRUE)[[2]], 
+           qnt75 = quantile(rateDollarsWeek, na.rm = TRUE)[[3]]) %>%
+    mutate(iqr = qnt75 - qnt25) %>%
+    mutate(low = qnt25 - iqr*1.5, high = qnt75 + iqr*1.5)    
+
+sample <- prep %>%
+    left_join(quant, by = 'naicsThree') %>%
+    filter(rateDollarsWeek > low & rateDollarsWeek < high) 
+
+avg <- sample %>%
+    group_by(naicsThree) %>%
+    summarize(meanRate = mean(rateDollarsWeek))
+
+chart <- sample %>%
+    left_join(avg, by = 'naicsThree') %>%
+    mutate(diffRate = rateDollarsWeek - meanRate) %>%
+    mutate(funded = ifelse(GSA.Funded == 'Yes', 'GSA Funded', 'Other Agency Funded'))
+
+chart$compCat <- factor(chart$compCat, 
+                        levels = c("Effectively Competed","One Bid","Not Competed"))
+
+ggplot(data = chart, aes(x = compCat, y = diffRate)) +
+    geom_boxplot() +
+    facet_wrap(~funded) + 
+    labs(title = 'Cost Differential by Extent of Competition',
+         x = 'Extent of Competition',
+         y = 'Difference from Mean Price for Product Category')
+
+#ggplot(data = chart, aes(x = meanRate, y=rateDollarsWeek)) +
+ #   geom_point(aes(color=compCat)) +
+  #  scale_x_continuous(limits = c(0, 2500)) + 
+   # scale_y_continuous(limits = c(0, 2500))
+```
+
+In order to understand why a cost differential is not readily apparent we explored the concept of competition in more detail and dug a bit deeper into the procurement data.  
+
+##What is competition?
+
+The OGP analyzes competition according to whether or not vendors were given an opportunity to bid and if so, how many vendors actually submitted an offer.
+
+Here's the breakdown of actions and dollars by extent of competition and GSA regional contracting agency. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=12} 
+require(tidyr)
+chart <- fpds %>%
+    select(Contracting.Group.ID, compCat, catAward, Action.Obligation) %>%
+    mutate(Competition = compCat) %>%
+    group_by(Contracting.Group.ID, Competition, catAward) %>%
+    summarize(dollars = sum(Action.Obligation)*10^-6 , actions = n()) %>%
+    gather(.,"measure","value", 4:5)
+
+chart$Competition <- factor(chart$Competition, 
+                        levels = c("Effectively Competed","One Bid","Not Competed"))
+
+ggplot(data = filter(chart, !is.na(Competition))
+       , aes(x = Contracting.Group.ID, y = value)) +
+    geom_bar(aes(fill = Competition), position = "fill", stat = "identity") +
+    facet_wrap(~measure) + 
+    coord_flip() +
+    labs(title = 'Mix of Competition by Regional Contracting Agency',
+         y = 'Proportion of Total',
+         x = 'Regional Contracting Agency')
+```
+
+This shows that most actions are effectively competed, while the Public Building Service tends to compete fewer of its procurements than the Federal Acquisition Service.
