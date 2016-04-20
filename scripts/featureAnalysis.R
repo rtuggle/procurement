@@ -142,15 +142,14 @@ panel.cor <- function(x, y, digits=2, prefix="", cex.cor, ...)
 
 ## Write out scatter plot matrix to png
 
-png("fig/5_scatterMetrics.png",height=1000,width=1400)
+png("fig/5_scatterMetrics.png",height=1200,width=1400)
 pairs(~sumAwards + sumDollars + competedRate + offerRate + setAsideRate, 
       data=na.omit(chart.feature), 
-      lower.panel = panel.smooth,
+      lower.panel = panel.smooth,cex=1.5,
       upper.panel = panel.cor,
-      cex.labels=2,
+      cex.labels=2, font.labels = 2,
       pch = 20, main='Competition Metrics Matrix\n Comparison of Regional Contracting Agencies') +
-  theme(axis.text=element_text(size=20),axis.title=element_text(size=13,face="bold"),
-        title=element_text(size=14,face="bold"))
+  theme(title=element_text(size=14,face="bold"))
 
 dev.off()
 
