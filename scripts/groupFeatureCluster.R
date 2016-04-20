@@ -19,7 +19,7 @@ group.frame <- fpds %>%
          Referenced..IDV.PIID, Modification.Number, 
          Principal.Place.of.Performance.State.Code,
          Congressional.District.Place.of..Performance, histDisAdv
-  ) 
+  )
 
 make.feature.table <- function(data){
   ## function to create a list of features by contracting group and combine them into a table
@@ -131,9 +131,9 @@ make.feature.table <- function(data){
     full_join(vendorConc.compare,by = c('Contracting.Group.ID'))  %>%
     full_join(congressConc.compare,by = c('Contracting.Group.ID'))
   
-  group.features <- featureGroup.compare %>% select(Contracting.Group.ID,
-                                                    propNoSetAside, propCompete,
-                                                    maxOffers, propHistDis,congressConc)
+  group.features <- featureGroup.compare %>% select(Contracting.Group.ID,wtpropCompeted,
+                                                    wtavgOffers, wtpropNoSetAside)
+  #select(Contracting.Group.ID,propNoSetAside, propCompete,maxOffers, propHistDis,congressConc)
   
   return(group.features)
 }
@@ -150,7 +150,7 @@ make.graphable <- function(data, scaled=T){
   if (scaled){
     data.out <- scale(data.out) # standardize variables 
   }
-  return(data.out)
+  return(na.omit(data.out))
 }
 
 
@@ -174,7 +174,35 @@ both.graphable.scaled <- make.graphable(comparison.both,scaled=T)
 
 
 ## count clusters
-kmeans.cluster.count(na.omit(both.graphable))
+kmeans.cluster.count(both.graphable)
+kmeans.cluster.count(both.graphable.scaled)
+
+
+
+# K-Means Cluster Analysis
+fit <- kmeans(both.graphable.scaled, 5) # 5 cluster solution
+plot(fit$cluster)
+# get cluster means
+aggregate(both.graphable.scaled,by=list(fit$cluster),FUN=mean)
+# append cluster assignment
+both.out <- data.frame(both.graphable.scaled, fit$cluster) 
+
+
+
+## calculate distances
+d <- dist(both.graphable.scaled, method = "euclidean") # distance matrix
+fit <- hclust(d, method="ward.D",)
+plot(fit)
+groups <- cutree(fit, k=4)
+rect.hclust(fit, k=4, border="red")
+
+
+thinger <- cluster::agnes(both.graphable.scaled)
+plot(thinger)
+
+thinger <- cluster::clara(both.graphable.scaled,k=6)
+plot(thinger)
+
 
 ## make feature table for awards only
 comparison.awards <- filter(group.frame, catAward == "Award") %>% make.feature.table(.)
@@ -183,13 +211,29 @@ awards.graphable.scaled <- make.graphable(comparison.awards,scaled=T)
 
 ## count clusters
 kmeans.cluster.count(awards.graphable)
+kmeans.cluster.count(awards.graphable.scaled)
 
+
+# Ward Hierarchical Clustering with Bootstrapped p values  -- pvclust packages
+
+fit <- pvclust::pvclust(awards.graphable.scaled, method.hclust="ward.D",
+                        method.dist ="euclidean")
+plot(fit) # dendogram with p values
+# add rectangles around groups highly supported by the data
+pvrect(fit, alpha=.95) 
 
 
 ## calculate distances
-d <- dist(both.graphable.scaled, method = "euclidean") # distance matrix
-fit <- hclust(d, method="ward.D")
-plot(fit)
+awards.dist <- dist(awards.graphable.scaled, method = "euclidean") # distance matrix
+awards.fit <- hclust(awards.dist, method="ward.D")
+plot(awards.fit)
+awards.clusters <- cutree(awards.fit, k=5)
+rect.hclust(awards.fit, k=5, border="red")
+
+awards.compare <- as.data.frame(awards.clusters) %>% mutate(Contract.Group.ID=rownames(.)) %>%
+  full_join(awards.graphable.scaled,by="Contract.Group.ID")
+
+groups %>% pairs(color=)
 
 ## Base R implementation
 
