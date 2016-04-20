@@ -1,0 +1,98 @@
+---
+title: "SocioEconomic Value"
+author: "Ryan Tuggle"
+date: "April 19, 2016"
+output: html_document
+---
+#
+
+##How much do competitive set asides improve vendor diversity?
+Sometimes effective use of competition includes placing limits on the vendors who are allowed to participate. One common tool for placing these limits are set asides, which set requirements on the types of vendors who are eligible to make an offer. In theory, the limits placed on set asides should substantially influence the vendor selection process. 
+
+In order to analyze the extent of the influence of set asides on vendor selection, we first looked at the proportion of set-aside competitions awarded to socioeconomically favored groups as compared to no-set-aside competitions.
+
+```{r, echo = FAlSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+
+vendor.frame <- fpds %>% 
+    select(uniqueId, Type.of.Set.Aside, catAward, Action.Obligation,
+           Number.of.Offers.Received,
+           Is.Vendor...Alaskan.Native.Corporation.Owned.Firm,
+           Is.Vendor...American.Indian.Owned,
+           Is.Vendor...Black.American.Owned,
+           Is.Vendor...Domestic.Shelter,
+           Is.Vendor...DoT.Certified.Disadvantaged.Business.Enterprise,
+           Is.Vendor...Emerging.Small.Business,
+           Is.Vendor...Hispanic.American.Owned,
+           Is.Vendor...Indian.Tribe,
+           Is.Vendor...Minority.Owned.Business,
+           Is.Vendor...Native.American.Owned,
+           Is.Vendor...Native.Hawaiian.Organization.Owned.Firm,
+           Is.Vendor...Other.Minority.Owned,
+           Is.Vendor...SBA.Certified.8..a..Joint.Venture,
+           Is.Vendor...SBA.Certified.8.a..Program.Participant,
+           Is.Vendor...SBA.Certified.Hub.Zone.firm,
+           Is.Vendor...SBA.Certified.Small.Disadvantaged.Business,
+           Is.Vendor...Self.Certifed.Small.Disadvantaged.Business,
+           Is.Vendor...Service.Disabled.Veteran.Owned.Business,
+           Is.Vendor...Subcontinent.Asian..Asian.Indian..American.Owned,
+           Is.Vendor...Tribally.Owned,
+           Is.Vendor...Veteran.Owned.Business,
+           Is.Vendor...Woman.Owned.Business,
+           Is.Vendor.Business.Type...Economically.Disadvantaged.Women.Owned.Small.Business,
+           Is.Vendor.Business.Type...Women.Owned.Small.Business) %>%
+    gather("Vendor", "flag", 5:28) %>%
+    filter(flag == 'YES') %>%
+    mutate(Competition = ifelse(grepl("NO SET", Type.of.Set.Aside) | 
+                                    is.na(Type.of.Set.Aside), "No-Set-Aside",
+                                "Set-Aside" )) %>%
+    group_by(Competition, Vendor) %>%
+    summarize(sumDollars = sum(Action.Obligation),
+              countAwards = n_distinct(uniqueId),
+              countActions = n())
+
+total.frame <- fpds %>%
+    select(uniqueId, Type.of.Set.Aside, catAward, Action.Obligation) %>%
+    mutate(Competition = ifelse(grepl("NO SET", Type.of.Set.Aside) | 
+                                    is.na(Type.of.Set.Aside), "No-Set-Aside",
+                                "Set-Aside" )) %>%
+    group_by(Competition) %>%
+    summarize(totalDollars = sum(Action.Obligation),
+              totalAwards = n_distinct(uniqueId),
+              totalActions = n())
+
+chart.socio <- vendor.frame %>%
+    left_join(total.frame, by = "Competition") %>%
+    mutate(pctDollars = (sumDollars / totalDollars) * 100,
+           pctAwards = (countAwards / totalAwards) * 100,
+           pctActions = (countActions / totalActions) * 100)
+
+chart.socio$Competition <- factor(chart.socio$Competition, 
+                                  levels = c("Set-Aside", "No-Set-Aside"))
+    
+ggplot(data = chart.socio, aes(x = Vendor, y = pctDollars)) +
+    geom_bar(stat = 'identity') +
+    facet_wrap(~Competition) +
+    coord_flip() +
+    labs(x = 'SocioEconomic Category', y = 'Percent of Total Obligations',
+         title = 'Share of Funding by Set Aside Type and SocioEconomic Category')
+```
+
+This analysis confirms that set-aside competitions help socieconomically favored groups to win a much higher percentage of procurement dollars. 
+
+Next, we explore how big a difference particular types of set-asides might make for particular socieconomically favored groups.
+
+```{r setup, include=FALSE}
+compete.frame <- fpds %>%
+    select(compCat, Type.of.Set.Aside, Action.Obligation) %>%
+    mutate(Competition = ifelse(grepl("NO SET", Type.of.Set.Aside) | 
+                                    is.na(Type.of.Set.Aside), "No-Set-Aside",
+                                "Set-Aside" )) %>%
+    group_by(Competition) %>%
+
+naics.frame <- fpds %>%
+    select(naicsTwo, Type.of.Set.Aside, Action.Obligation)
+
+```

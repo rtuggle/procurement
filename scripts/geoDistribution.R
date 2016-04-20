@@ -6,49 +6,45 @@ require(dplyr)
 
 #create a unique key for awards and districts, select needed variables
 geo.frame <- fpds %>%
-    select(uniqueId, Place.of.Performance.Zip.Code, congressId, Action.Obligation,
+    select(uniqueId, Contracting.Group.ID,
+           Place.of.Performance.Zip.Code, congressId, Action.Obligation,
            Funding.Department.Name, PIID.Agency.ID, PIID, Referenced.IDV.Agency.ID, 
            Referenced..IDV.PIID, Modification.Number, 
            Principal.Place.of.Performance.State.Code,
            Congressional.District.Place.of..Performance,
            Contracting.Office.Name,Contracting.Office.ID,
-           Contracting.Agency.Name,Contracting.Agency.Name) 
+           Contracting.Agency.Name)
 
-#for reference count how many distinct unique ids
-cntAwards <- n_distinct(congress.frame$uniqueId)
-paste('the number of distinct awards in dataset is:', 
-      prettyNum(cntAwards, big.mark = ',', scientific = FALSE))
+#output funding by office by zipcode for mapping
+zip.frame <- geo.frame %>%
+    group_by(Contracting.Group.ID, Place.of.Performance.Zip.Code) %>%
+    summarize(sumDolars = sum(Action.Obligation))
+
+#write.csv(zip.frame, file = '../data/zipcodeData.csv')
 
 #remove records with NA in CongressId
-congressNoNa <- congress.frame %>%
+congressNoNa <- geo.frame %>%
     filter(!grepl("NA", congressId))
 
-#compare the full and congressNoNa datasets (TASK: bind together to make table)
-summarize(congress.frame, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
-summarize(congressNoNa, distinct = n_distinct(uniqueId), dollars = sum(Action.Obligation))
-
-#look for remaining records with more than one district
-#this is not meant to happen according to data model
-test <- congressNoNa %>%
-    group_by(uniqueId) %>%
-    summarize(districts = n_distinct(congressId),
-              list = paste(congressId, 
-                           collapse = "|")) %>%
-    filter(districts > 1) %>%
-    arrange(desc(districts))
-
-#write the errors out for examination
-write.csv(test, file = "~/Repositories/data/exceptionsCongress.csv", row.names = FALSE)
-
 #get the total spending by Funding Department, rank, and get percentages
+
+congress.total <- congressNoNa %>%
+    select(Contracting.Group.ID, Action.Obligation) %>%
+    group_by(Contracting.Group.ID) %>%
+    summarize(totalDollars = sum(Action.Obligation))
+
 congress.funding <- congressNoNa %>%
-    group_by(Funding.Department.Name, congressId) %>%
+    group_by(Contracting.Group.ID, congressId) %>%
     summarize(total = sum(Action.Obligation)) %>%
-    arrange(Funding.Department.Name, desc(total)) %>%
-    group_by(Funding.Department.Name) %>%
+    arrange(Contracting.Group.ID, desc(total)) %>%
+    ungroup() %>%
+    filter(total > 0) %>%
+    group_by(Contracting.Group.ID) %>%
     mutate(rank = row_number(), 
-           pctFund = (cumsum(total) / sum(total)) * 100,
+           pctDollar = (cumsum(total) / sum(total)),
            pctDistrict = (cumsum(rank) / sum(rank)))
+
+write.csv(congress.funding, file = '../data/geoConcentration.csv', na="", row.names = FALSE)
 
 
 #graph the results

@@ -72,17 +72,20 @@ Here's the breakdown of actions and dollars by extent of competition and GSA reg
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=12} 
 require(tidyr)
-chart <- fpds %>%
-    select(Contracting.Group.ID, compCat, catAward, Action.Obligation) %>%
+chart.mix <- fpds %>%
+    select(Contracting.Group.ID, compCat, catAward, Action.Obligation, uniqueId) %>%
     mutate(Competition = compCat) %>%
     group_by(Contracting.Group.ID, Competition, catAward) %>%
-    summarize(dollars = sum(Action.Obligation)*10^-6 , actions = n()) %>%
-    gather(.,"measure","value", 4:5)
+    summarize(dollars = sum(Action.Obligation)*10^-6 , awards = n_distinct(uniqueId), 
+              actions = n()) %>%
+    gather(.,"measure","value", 4:6)
 
-chart$Competition <- factor(chart$Competition, 
+chart.mix$Competition <- factor(chart.mix$Competition, 
                         levels = c("Effectively Competed","One Bid","Not Competed"))
+chart.mix$measure <- factor(chart.mix$Measure, 
+                        levels = c("Actions","Awards","Dollars"))
 
-ggplot(data = filter(chart, !is.na(Competition))
+ggplot(data = filter(chart.mix, !is.na(Competition))
        , aes(x = Contracting.Group.ID, y = value)) +
     geom_bar(aes(fill = Competition), position = "fill", stat = "identity") +
     facet_wrap(~measure) + 
