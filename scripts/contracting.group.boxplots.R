@@ -49,8 +49,8 @@ png(filename = "fig/1_offers_received_dist_regional_agencies_BW.png",height = 10
 
 region.box.data %>% 
 ggplot(data=.,aes(x=Contracting.Group.ID,y=numberOffers)) +
-  geom_boxplot() + coord_flip() +xlab("Number of Offers") + 
-  ylab("Regional Contracting Agency") + ggtitle("Distribution of Offers Received by Regional Contracting Agency")+
+  geom_boxplot() + coord_flip() +xlab("Regional Contracting Agency") + 
+  ylab("Offers") + ggtitle("Offers Received by Regional Contracting Agency")+
   annotate("text", label = "* Only Non-Vehicle Awards Shown", x = 2.5, y = 90, size = 3, colour = "black") +
   theme(axis.text=element_text(size=11),axis.title=element_text(size=13,face="bold"),title=element_text(size=14,face="bold"))
   
@@ -72,8 +72,8 @@ naics.box.data <- region.frame %>%
 png(filename = "fig/2_offers_received_dist_NAICS_box.png",height = 1000,width = 1400)
 naics.box.data %>% filter(catAward == 'Award') %>% 
   ggplot(data=.,aes(x=naicsTwo,y=numberOffers)) +
-  geom_boxplot() + coord_flip() +xlab("Number of Offers") + 
-  ylab("NAICS") + ggtitle("Distribution of Offers Received by NAICS")+
+  geom_boxplot() + coord_flip() +xlab("Industry Sector") + 
+  ylab("Offers") + ggtitle("Offers Received by Industry Sector")+
   annotate("text", label = "* Only Non-Vehicle Awards Shown", x = 1.5, y = 90, size = 3, colour = "black") +
   theme(axis.text=element_text(size=11),
         axis.title=element_text(size=13,face="bold"),title=element_text(size=14,face="bold"))
@@ -118,8 +118,8 @@ png(filename = "fig/3_offers_received_dist_regional_agencies_COLOR.png",height =
 
 region.box.data %>% 
   ggplot(data=.,aes(x=Contracting.Group.ID,y=numberOffers)) +
-  geom_boxplot() + coord_flip() +xlab("Number of Offers") + 
-  ylab("Regional Contracting Agency") + ggtitle("Distribution of Offers Received by Regional Contracting Agency")+
+  geom_boxplot() + coord_flip() +xlab("Regional Contracting Agency") + 
+  ylab("Offers") + ggtitle("Offers Received by Regional Contracting Agency")+
   annotate("text", label = "* Only Non-Vehicle Awards Shown", x = 2.5, y = 90, size = 3, colour = "black") +
   theme(axis.text=element_text(size=11),axis.title=element_text(size=13,face="bold"),
         title=element_text(size=14,face="bold"), axis.text.y = element_text(colour = colorlist,face=boldlist))
@@ -150,8 +150,8 @@ png(filename = "fig/4_offers_received_dist_NAICS_HiLow.png",height = 1000,width 
 comb.scatter.data  %>% ungroup() %>%
   ggplot(data=.,aes(x=naicsTwo,y=numberOffers,color=Grouping)) +
   geom_point() + coord_flip() +
-  ylab("Number of Offers") + 
-  xlab("NAICS") + ggtitle("Distribution of Offers Received by NAICS") +
+  ylab("Offers") + 
+  xlab("Industry Sector") + ggtitle("Offers Received by Industry Sector") +
   annotate("text", label = "* Only Non-Vehicle Awards Shown", x = 1.5, y = 90, size = 3, colour = "black") +
   scale_colour_discrete( name="",breaks=c("High", "Low"),
                           labels=c("HIGH: R3 - PBS & R2 - FAS","LOW:  R2 - PBS & R9 - FAS")) +
